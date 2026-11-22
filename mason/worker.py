@@ -25,8 +25,8 @@ class Worker:
 
     def start(self) -> None:
         # tarefas que estavam rodando quando o servidor caiu voltam para a fila
-        for t in db.rows("SELECT id FROM tasks WHERE status='em_andamento'"):
-            db.set_task_status(t["id"], "pendente", "sistema", "retomada após reinício")
+        for tid in db.task_ids("em_andamento"):
+            db.set_task_status(tid, "pendente", "sistema", "retomada após reinício")
         threading.Thread(target=self._loop, daemon=True, name="mason-dispatcher").start()
 
     def _submit(self, key: str, fn, *args) -> None:
@@ -46,21 +46,21 @@ class Worker:
                     db.send_message("sistema", "mason", f"Falha na tarefa #{tid}", str(e), tid)
                 elif key.startswith("review:"):
                     tid = int(key.split(":")[1])
-                    db.execute("UPDATE tasks SET review_pending=0 WHERE id=?", (tid,))
+                    db.update_task(tid, review_pending=0)
                     db.add_update(tid, "sistema", "erro", f"Revisão automática falhou: {e}")
                 db.log("sistema", "erro", f"{key}: {e}")
             finally:
                 with self.lock:
                     self.running.discard(key)
+                db.work_available.set()  # vaga livre: pode iniciar o próximo trabalho
 
         self.pool.submit(wrapped)
 
     def tick(self) -> None:
-        for t in db.rows("SELECT id FROM tasks WHERE status='pendente' ORDER BY "
-                         "CASE priority WHEN 'urgente' THEN 0 WHEN 'alta' THEN 1 WHEN 'media' THEN 2 ELSE 3 END, id"):
-            self._submit(f"task:{t['id']}", agents.run_department_task, t["id"])
-        for t in db.rows("SELECT id FROM tasks WHERE status='em_revisao' AND review_pending=1"):
-            self._submit(f"review:{t['id']}", self._review, t["id"])
+        for tid in db.task_ids("pendente"):
+            self._submit(f"task:{tid}", agents.run_department_task, tid)
+        for tid in db.task_ids("em_revisao", review_pending=1):
+            self._submit(f"review:{tid}", self._review, tid)
         self._maybe_report()
 
     def _review(self, task_id: int) -> None:
@@ -68,7 +68,7 @@ class Worker:
         t = db.get_task(task_id)
         if t["status"] == "em_revisao" and t["review_pending"]:
             # MASON não decidiu: evita repetir a revisão sem fim
-            db.execute("UPDATE tasks SET review_pending=0 WHERE id=?", (task_id,))
+            db.update_task(task_id, review_pending=0)
             db.add_update(task_id, "sistema", "aviso", "Revisão sem decisão; aguardando o MASON ou o proprietário.")
 
     def _maybe_report(self) -> None:
@@ -91,7 +91,8 @@ class Worker:
                 self.tick()
             except Exception:
                 log.exception("Erro no despachante")
-            time.sleep(2)
+            db.work_available.wait(timeout=5)
+            db.work_available.clear()
 
     def status(self) -> list[str]:
         with self.lock:

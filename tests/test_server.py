@@ -18,7 +18,7 @@ def test_login():
         assert c.get("/").status_code == 200
         assert c.get("/manifest.webmanifest").status_code == 200
         assert c.get("/api/overview").status_code == 401
-        assert c.get("/api/session").json() == {"logged_in": False, "password_required": True}
+        s = c.get("/api/session").json(); assert s["logged_in"] is False and s["mode"] == "senha"
         assert c.post("/api/login", json={"password": "errada"}).status_code == 401
         r = c.post("/api/login", json={"password": "segredo-123"})
         assert r.status_code == 200 and "mason_session" in r.cookies

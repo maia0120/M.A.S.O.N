@@ -124,14 +124,14 @@ def mason_tools(actor: str = "mason") -> list[Tool]:
             raise ValueError("Tarefa não existe")
         if t["status"] != "em_revisao":
             raise ValueError(f"A tarefa não está em revisão (status: {t['status']})")
-        db.execute("UPDATE tasks SET review_pending=0 WHERE id=?", (t["id"],))
+        db.update_task(t["id"], review_pending=0)
         db.add_update(t["id"], "mason", "revisao", f"{decisao}: {comentario}")
         if decisao == "aprovar" or t["review_rounds"] >= MAX_REVIEW_ROUNDS:
             note = comentario if decisao == "aprovar" else f"concluída após {MAX_REVIEW_ROUNDS} revisões; ressalvas: {comentario}"
             db.set_task_status(t["id"], "concluida", "mason", note)
             db.log("mason", "concluiu_tarefa", f"#{t['id']} {t['title']}")
             return "Tarefa marcada como concluída."
-        db.execute("UPDATE tasks SET review_rounds=review_rounds+1 WHERE id=?", (t["id"],))
+        db.update_task(t["id"], review_rounds=t["review_rounds"] + 1)
         queue_input(t["id"], f"[Revisão do MASON] O resultado precisa de ajustes antes de ser aceito:\n{comentario}\n"
                     "Corrija e entregue novamente com concluir_tarefa (envie o resultado completo).", "mason")
         return "Tarefa devolvida ao departamento com os ajustes pedidos."
@@ -145,23 +145,16 @@ def mason_tools(actor: str = "mason") -> list[Tool]:
         return {"approval_id": aid, "mensagem": "Pedido registrado no painel do proprietário."}
 
     def listar_aprovacoes(status: str = "pendente") -> Any:
-        return db.rows("SELECT * FROM approvals WHERE status=? ORDER BY id DESC LIMIT 30", (status,))
+        return db.list_approvals(status)
 
     def ler_mensagens(apenas_nao_lidas: bool = True) -> Any:
-        sql = "SELECT * FROM internal_messages WHERE to_agent='mason'"
-        if apenas_nao_lidas:
-            sql += " AND read=0"
-        msgs = db.rows(sql + " ORDER BY id DESC LIMIT 30")
-        if msgs:
-            db.execute(f"UPDATE internal_messages SET read=1 WHERE id IN ({','.join('?' * len(msgs))})",
-                       tuple(m["id"] for m in msgs))
-        return msgs
+        return db.messages_for("mason", unread_only=apenas_nao_lidas, mark_read=True)
 
     def listar_recomendacoes(status: str = "nova") -> Any:
-        return db.rows("SELECT * FROM recommendations WHERE status=? ORDER BY id DESC LIMIT 30", (status,))
+        return db.list_recommendations(status)
 
     def atualizar_recomendacao(recomendacao_id: int, status: str) -> Any:
-        db.execute("UPDATE recommendations SET status=? WHERE id=?", (status, int(recomendacao_id)))
+        db.set_recommendation_status(int(recomendacao_id), status)
         return "Recomendação atualizada."
 
     def buscar_memoria(consulta: str) -> Any:
@@ -172,12 +165,12 @@ def mason_tools(actor: str = "mason") -> list[Tool]:
         return "Memória salva."
 
     def salvar_relatorio(titulo: str, conteudo: str) -> Any:
-        rid = db.execute("INSERT INTO reports(title, content, created_at) VALUES (?,?,?)", (titulo, conteudo, db.now()))
+        rid = db.save_report(titulo, conteudo)
         db.log("mason", "relatorio", titulo)
         return {"report_id": rid}
 
     def ver_relatorios_anteriores(quantidade: int = 3) -> Any:
-        return db.rows("SELECT * FROM reports ORDER BY id DESC LIMIT ?", (int(quantidade),))
+        return db.list_reports(int(quantidade), with_content=True)
 
     S = {"type": "string"}
     I = {"type": "integer"}
@@ -343,10 +336,7 @@ def department_tools(dept: dict[str, Any], task_id: int) -> list[Tool]:
         return {"task_id": tid, "mensagem": "Tarefa de apoio criada; o resultado não volta automaticamente para cá."}
 
     def propor_recomendacao(titulo: str, conteudo: str, departamento_alvo: str | None = None) -> Any:
-        rid = db.execute(
-            "INSERT INTO recommendations(department_id, target_department, title, content, created_at) VALUES (?,?,?,?,?)",
-            (dept_id, departamento_alvo, titulo, conteudo, db.now()),
-        )
+        rid = db.add_recommendation(dept_id, titulo, conteudo, departamento_alvo)
         db.log(agent, "recomendacao", titulo)
         return {"recomendacao_id": rid}
 
@@ -408,8 +398,7 @@ def run_department_task(task_id: int) -> RunResult:
     conv = f"task:{task_id}"
     message = t["next_input"] or (task_brief(t) if not db.load_conversation(conv) else
                                   "Continue a tarefa de onde parou.")
-    db.execute("UPDATE tasks SET next_input=NULL WHERE id=?", (task_id,))
-    db.set_task_status(task_id, "em_andamento", dept["agent_id"])
+    db.set_task_status(task_id, "em_andamento", dept["agent_id"], next_input=None)
     extra = [WEB_SEARCH_TOOL] if dept.get("web_search") else None
     result = run_agent(conv, department_system(dept), department_tools(dept, task_id), message,
                        effort="high", extra_tools=extra, max_steps=30)

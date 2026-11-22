@@ -81,7 +81,7 @@ def drain(w, secs=10):
     while time.time() < end:
         w.tick()
         time.sleep(0.2)
-        busy = w.status() or db.rows("SELECT id FROM tasks WHERE status='pendente' OR (status='em_revisao' AND review_pending=1)")
+        busy = w.status() or db.task_ids("pendente") or db.task_ids("em_revisao", review_pending=1)
         if not busy:
             return
     raise AssertionError("não drenou")
@@ -104,7 +104,7 @@ def test_all():
     tid = db.create_task("Orçamento de anúncios", "Planejar", "comercial", "mason")
     drain(w)
     assert db.get_task(tid)["status"] == "aguardando_aprovacao"
-    ap = db.rows("SELECT * FROM approvals WHERE status='pendente'")[0]
+    ap = db.list_approvals("pendente")[0]
     agents.owner_decided(db.decide_approval(ap["id"], True, "pode"))
     drain(w)
     t = db.get_task(tid)

@@ -98,7 +98,8 @@
   #login { position: fixed; inset: 0; background: var(--ink); display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
   #login form { background: #fff; border-radius: 12px; padding: 28px 24px; width: min(360px, 100%); text-align: center; }
   #login img { width: 72px; height: 72px; border-radius: 16px; }
-  #login input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin: 14px 0 10px; }
+  #login input { display: block; width: 100%; padding: 12px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin: 12px 0 0; }
+  #login input[hidden] { display: none; } #loginErr { margin-top: 10px; }
   #login button { width: 100%; padding: 12px; font-size: 16px; }
   #loginErr { color: var(--bad); min-height: 20px; font-size: 13px; }
   @media (max-width: 1000px) { main { grid-template-columns: 1fr; } #board { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; } }
@@ -133,8 +134,11 @@
 <body class="tab-chat">
 <div id="login"><form id="loginForm">
   <img src="/icon-192.png" alt=""><h2 style="margin:12px 0 0">Escritório Virtual MASON</h2>
+  <input type="email" id="email" placeholder="E-mail" autocomplete="username" hidden>
   <input type="password" id="pw" placeholder="Senha" autocomplete="current-password">
-  <div id="loginErr"></div><button class="primary">Entrar</button>
+  <div id="loginErr"></div><button class="primary" id="loginBtn">Entrar</button>
+  <p id="forgotWrap" hidden><a href="#" id="forgot" style="color:var(--muted);font-size:13px">Esqueci minha senha</a></p>
+  <p style="color:var(--muted);font-size:12px;margin:14px 0 0">Acesso exclusivo do proprietário.</p>
 </form></div>
 <header>
   <div>
@@ -380,15 +384,51 @@ document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
 
 // ---------------- login
 let timer = null;
-function showLogin() { $("#login").style.display = "flex"; clearInterval(timer); timer = null; setTimeout(() => $("#pw").focus(), 50); }
+function showLogin() { $("#login").style.display = "flex"; clearInterval(timer); timer = null; setTimeout(() => (SESSION.mode === "firebase" ? $("#email") : $("#pw")).focus(), 50); }
+let SESSION = {mode: "senha"}, fb = null;
+async function firebase() {
+  // SDK do Firebase Authentication empacotado junto com o app (/firebase-auth.js)
+  if (fb) return fb;
+  const m = await import("/firebase-auth.js");
+  const c = SESSION.firebase;
+  const app = m.initializeApp({apiKey: c.apiKey, authDomain: c.authDomain, projectId: c.projectId});
+  const a = m.getAuth(app);
+  if (c.emulatorHost) m.connectAuthEmulator(a, "http://" + c.emulatorHost, {disableWarnings: true});
+  await m.setPersistence(a, m.browserSessionPersistence);
+  return fb = {m, a};
+}
+const FB_ERRORS = {"auth/invalid-credential": "E-mail ou senha incorretos", "auth/wrong-password": "E-mail ou senha incorretos",
+  "auth/user-not-found": "E-mail ou senha incorretos", "auth/too-many-requests": "Muitas tentativas. Tente mais tarde.",
+  "auth/invalid-email": "E-mail inválido", "auth/network-request-failed": "Sem conexão com o Firebase", "auth/user-disabled": "Conta desativada"};
 $("#loginForm").onsubmit = async e => {
-  e.preventDefault(); $("#loginErr").textContent = "";
-  const r = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({password: $("#pw").value})});
-  if (!r.ok) { $("#loginErr").textContent = (await r.json().catch(() => ({}))).detail || "Erro ao entrar"; return; }
-  $("#login").style.display = "none"; $("#pw").value = ""; start();
+  e.preventDefault(); $("#loginErr").textContent = ""; $("#loginBtn").disabled = true;
+  try {
+    let body = {password: $("#pw").value};
+    if (SESSION.mode === "firebase") {
+      const {m, a} = await firebase();
+      const cred = await m.signInWithEmailAndPassword(a, $("#email").value.trim(), $("#pw").value);
+      body = {id_token: await cred.user.getIdToken()};
+      await m.signOut(a); // a partir daqui vale o cookie de sessão do MASON
+    }
+    const r = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Erro ao entrar");
+    $("#login").style.display = "none"; $("#pw").value = ""; start();
+  } catch (err) { $("#loginErr").textContent = FB_ERRORS[err.code] || err.message; }
+  $("#loginBtn").disabled = false;
+};
+$("#forgot").onclick = async e => {
+  e.preventDefault();
+  const email = $("#email").value.trim(); if (!email) { $("#loginErr").textContent = "Digite seu e-mail primeiro"; return; }
+  try { const {m, a} = await firebase(); await m.sendPasswordResetEmail(a, email); $("#loginErr").textContent = "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha."; }
+  catch (err) { $("#loginErr").textContent = FB_ERRORS[err.code] || err.message; }
 };
 function start() { loadChat(); refresh(); if (!timer) timer = setInterval(refresh, 5000); }
-fetch("/api/session").then(r => r.json()).then(s => s.logged_in ? start() : showLogin());
+fetch("/api/session").then(r => r.json()).then(s => {
+  SESSION = s;
+  const isFb = s.mode === "firebase";
+  $("#email").hidden = !isFb; $("#forgotWrap").hidden = !isFb;
+  s.logged_in ? start() : showLogin();
+});
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 </script>
 </body>

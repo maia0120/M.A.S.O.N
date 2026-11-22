@@ -19,7 +19,7 @@ STATIC = os.path.join(os.path.dirname(__file__), "static")
 _chat_lock = threading.Lock()
 _chat_state: dict[str, str | None] = {"error": None}
 
-PUBLIC_PATHS = {"/", "/login", "/api/login", "/api/session", "/manifest.webmanifest", "/sw.js",
+PUBLIC_PATHS = {"/", "/login", "/api/login", "/api/session", "/manifest.webmanifest", "/sw.js", "/firebase-auth.js",
                 "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/healthz"}
 
 
@@ -38,7 +38,8 @@ def _startup() -> None:
 
 
 class LoginIn(BaseModel):
-    password: str
+    password: str | None = None
+    id_token: str | None = None
 
 
 class ChatIn(BaseModel):
@@ -70,6 +71,7 @@ def healthz():
 
 
 for _name, _type in (("manifest.webmanifest", "application/manifest+json"), ("sw.js", "text/javascript"),
+                     ("firebase-auth.js", "text/javascript"),
                      ("icon-192.png", "image/png"), ("icon-512.png", "image/png"),
                      ("apple-touch-icon.png", "image/png")):
     def _serve(name: str = _name, media: str = _type) -> FileResponse:
@@ -79,23 +81,19 @@ for _name, _type in (("manifest.webmanifest", "application/manifest+json"), ("sw
 
 @app.get("/api/session")
 def session(request: Request):
-    return {"logged_in": auth.valid_token(request.cookies.get(auth.COOKIE)),
-            "password_required": auth.password() is not None}
+    return {"logged_in": auth.valid_token(request.cookies.get(auth.COOKIE)), "mode": auth.mode(),
+            "firebase": auth.firebase_web_config()}
 
 
 @app.post("/api/login")
 def login(body: LoginIn, request: Request, response: Response):
-    if not auth.password():
-        return {"ok": True}
     client = request.headers.get("x-forwarded-for", request.client.host if request.client else "?").split(",")[0].strip()
     try:
-        ok = auth.check_password(body.password, client)
+        token = auth.login(client, password_value=body.password, id_token=body.id_token)
     except PermissionError as e:
-        raise HTTPException(429, str(e))
-    if not ok:
-        raise HTTPException(401, "Senha incorreta")
+        raise HTTPException(429 if "tentativas" in str(e) else 401, str(e))
     https = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
-    response.set_cookie(auth.COOKIE, auth.make_token(), max_age=auth.SESSION_DAYS * 86400,
+    response.set_cookie(auth.COOKIE, token, max_age=auth.SESSION_DAYS * 86400,
                         httponly=True, samesite="lax", secure=https)
     return {"ok": True}
 
@@ -191,7 +189,7 @@ def decide(approval_id: int, body: DecisionIn):
 
 @app.get("/api/reports/{report_id}")
 def report(report_id: int):
-    r = db.row("SELECT * FROM reports WHERE id=?", (report_id,))
+    r = db.get_report(report_id)
     if not r:
         raise HTTPException(404, "Relatório não encontrado")
     return r
@@ -205,7 +203,7 @@ def generate_report():
 
 @app.get("/api/recommendations/{rec_id}")
 def recommendation(rec_id: int):
-    r = db.row("SELECT * FROM recommendations WHERE id=?", (rec_id,))
+    r = db.get_recommendation(rec_id)
     if not r:
         raise HTTPException(404, "Recomendação não encontrada")
     return r
@@ -215,13 +213,16 @@ def recommendation(rec_id: int):
 def set_recommendation(rec_id: int, status: str):
     if status not in ("aceita", "descartada"):
         raise HTTPException(400, "Status inválido")
-    db.execute("UPDATE recommendations SET status=? WHERE id=?", (status, rec_id))
+    try:
+        db.set_recommendation_status(rec_id, status)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
     return {"ok": True}
 
 
 @app.get("/api/memory")
 def memory():
-    return db.rows("SELECT * FROM memory ORDER BY updated_at DESC LIMIT 200")
+    return db.list_memory()
 
 
 @app.post("/api/settings")

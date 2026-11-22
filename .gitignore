@@ -2,3 +2,7 @@ data/
 __pycache__/
 *.pyc
 .env
+*firebase-adminsdk*.json
+firebase-service-account.json
+firebase-debug.log
+firestore-debug.log

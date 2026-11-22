@@ -3,7 +3,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-# o banco fica em /data: monte um volume persistente nesse caminho
-ENV HOST=0.0.0.0 PORT=8000 MASON_DB=/data/escritorio.db PYTHONUNBUFFERED=1
+# Com o Firebase configurado, os dados ficam no Firestore. Sem ele, num SQLite em /data.
+ENV HOST=0.0.0.0 PORT=8000 MASON_DB=/data/mason-local.db PYTHONUNBUFFERED=1
 EXPOSE 8000
 CMD ["python", "run.py"]
