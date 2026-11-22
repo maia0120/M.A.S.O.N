@@ -19,7 +19,35 @@ Variáveis opcionais:
 | `MASON_MODEL` | `claude-opus-5-5` | Modelo usado por todos os agentes |
 | `MASON_MAX_PARALLEL` | `3` | Quantos trabalhos rodam ao mesmo tempo |
 | `MASON_DB` | `data/escritorio.db` | Arquivo do banco SQLite |
+| `MASON_PASSWORD` | (vazio) | Senha do painel; obrigatória para abrir na internet |
 | `MASON_REPORT_HOURS` | `0` | Relatório automático a cada N horas (0 = desligado; também ajustável no painel) |
+
+## Usar no celular, de qualquer lugar
+
+O MASON precisa ficar num servidor ligado 24 horas. O jeito mais simples é o **Railway**, que publica
+direto do GitHub. O plano Hobby custa cerca de US$ 5 por mês, fora o uso da API da Anthropic.
+
+1. Entre em https://railway.com e faça login com sua conta do GitHub.
+2. **New Project → Deploy from GitHub repo** e escolha `M.A.S.O.N`. O Railway encontra o `Dockerfile` sozinho.
+3. No serviço criado, abra **Variables** e adicione:
+   - `ANTHROPIC_API_KEY` = sua chave da Anthropic
+   - `MASON_PASSWORD` = uma senha forte (é ela que protege seu escritório na internet)
+4. Clique com o botão direito no serviço → **Attach Volume** → caminho de montagem `/data`.
+   Sem o volume, tarefas, memória e relatórios somem a cada atualização.
+5. **Settings → Networking → Generate Domain**. Você recebe um endereço como `https://mason-xxxx.up.railway.app`.
+6. Abra esse endereço no celular, entre com a senha e instale como app:
+   - **iPhone (Safari):** botão Compartilhar → **Adicionar à Tela de Início**
+   - **Android (Chrome):** menu ⋮ → **Instalar app** (ou "Adicionar à tela inicial")
+
+O app abre em tela cheia, com abas MASON / Empresa / Aprovações. As respostas do MASON são geradas
+no servidor, então não se perdem se você bloquear a tela no meio de uma resposta.
+
+O `Dockerfile` também funciona em outros serviços (Render, Fly.io, um VPS). Em qualquer um, defina
+as duas variáveis acima e monte um disco persistente em `/data`.
+
+**Segurança:** a chave e a senha ficam só nas variáveis do servidor, nunca no código (o repositório é
+público). Sem `MASON_PASSWORD`, o servidor se recusa a abrir para a internet. Depois de 5 senhas erradas,
+o login fica bloqueado por 15 minutos. Trocar a senha desconecta todos os aparelhos.
 
 ## O que já funciona
 
@@ -70,6 +98,5 @@ Os outros finais possíveis são `cancelada` e `falhou`.
   acessam seus sistemas. Eles produzem entregáveis e pedem aprovação quando necessário.
 - Custos: cada tarefa usa várias chamadas ao modelo, e a revisão automática acrescenta outras. Ajuste
   `MASON_MAX_PARALLEL` e a revisão automática conforme o volume.
-- O painel não tem login. Rode só localmente (`127.0.0.1`) até adicionarmos autenticação.
 
-Teste: `python tests/test_flow.py`
+Testes: `python tests/test_flow.py` e `python tests/test_server.py`

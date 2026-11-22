@@ -2,7 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c2230">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MASON">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/icon-192.png">
 <title>Escritório Virtual · MASON</title>
 <style>
   :root {
@@ -86,13 +94,51 @@
   .md code { background: #e9ecf2; padding: 0 4px; border-radius: 3px; font-size: 12px; }
   .md pre code { background: none; padding: 0; }
   .md table { border-collapse: collapse; } .md td, .md th { border: 1px solid var(--line); padding: 3px 6px; }
-  @media (max-width: 1000px) { main { grid-template-columns: 1fr; height: auto; } #chat { height: 70vh; } #board { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; } }
+  #tabs { display: none; }
+  #login { position: fixed; inset: 0; background: var(--ink); display: none; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+  #login form { background: #fff; border-radius: 12px; padding: 28px 24px; width: min(360px, 100%); text-align: center; }
+  #login img { width: 72px; height: 72px; border-radius: 16px; }
+  #login input { width: 100%; padding: 12px; font-size: 16px; border: 1px solid var(--line); border-radius: 8px; margin: 14px 0 10px; }
+  #login button { width: 100%; padding: 12px; font-size: 16px; }
+  #loginErr { color: var(--bad); min-height: 20px; font-size: 13px; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } #board { grid-template-columns: 1fr 1fr; } .grid2 { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) {
+    body { height: 100dvh; display: flex; flex-direction: column; padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+    header { flex: none; } header .long { display: none; }
+    header { padding: calc(10px + env(safe-area-inset-top)) 12px 10px; gap: 6px; }
+    header h1 { font-size: 15px; } header .sub { font-size: 11px; }
+    header button { padding: 5px 8px; font-size: 12px; }
+    #btnMemory { display: none; }
+    main { display: block; padding: 10px; flex: 1; min-height: 0; height: auto; overflow-y: auto; }
+    body.tab-chat main { overflow: hidden; }
+    #chat { height: 100%; } #right { overflow: visible; }
+    #chatform textarea { font-size: 16px; height: 52px; } /* 16px evita zoom automático no iPhone */
+    .quick { flex-wrap: nowrap; overflow-x: auto; } .quick button { white-space: nowrap; }
+    #board { grid-template-columns: 1fr; }
+    .alert { min-width: 30%; padding: 8px 10px; } .alert .n { font-size: 20px; }
+    .msg { max-width: 96%; }
+    #modal { padding: 0; align-items: stretch; } #modal .box { border-radius: 0; max-height: none; padding-top: calc(16px + env(safe-area-inset-top)); }
+    .item .acts { flex-wrap: wrap; } .item input { min-width: 100%; font-size: 16px; }
+    body.tab-chat #right, body.tab-painel #chat, body.tab-painel .appr-panel, body.tab-aprovacoes #chat, body.tab-aprovacoes #right > :not(.grid2), body.tab-aprovacoes .rec-panel, body.tab-aprovacoes .grid2:not(.first) { display: none; }
+    body.tab-aprovacoes .appr-panel { display: block; }
+    #right { gap: 10px; }
+    #tabs { display: flex; position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
+    #tabs button { flex: 1; border: 0; border-radius: 0; padding: 10px 0 12px; font-size: 12px; color: var(--muted); background: none; position: relative; }
+    #tabs button.on { color: var(--accent); font-weight: 600; }
+    #tabs .ico { display: block; font-size: 20px; line-height: 1.2; }
+    #tabs .badge { position: absolute; top: 4px; left: 55%; background: var(--bad); color: #fff; border-radius: 9px; font-size: 10px; padding: 0 5px; }
+  }
 </style>
 </head>
-<body>
+<body class="tab-chat">
+<div id="login"><form id="loginForm">
+  <img src="/icon-192.png" alt=""><h2 style="margin:12px 0 0">Escritório Virtual MASON</h2>
+  <input type="password" id="pw" placeholder="Senha" autocomplete="current-password">
+  <div id="loginErr"></div><button class="primary">Entrar</button>
+</form></div>
 <header>
   <div>
-    <h1>Escritório Virtual · MASON</h1>
+    <h1><span class="long">Escritório Virtual · </span>MASON</h1>
     <div class="sub" id="sub">carregando…</div>
   </div>
   <div class="spacer"></div>
@@ -121,9 +167,9 @@
     <div id="alerts"></div>
     <div class="panel"><h2>Departamentos</h2><div id="depts"></div></div>
     <div class="panel"><h2>Quadro de tarefas</h2><div id="board"></div></div>
-    <div class="grid2">
-      <div class="panel"><h2>Aguardando sua aprovação <span class="count" id="nAppr">0</span></h2><div class="list" id="approvals"></div></div>
-      <div class="panel"><h2>Recomendações dos departamentos <span class="count" id="nRec">0</span></h2><div class="list" id="recs"></div></div>
+    <div class="grid2 first">
+      <div class="panel appr-panel"><h2>Aguardando sua aprovação <span class="count" id="nAppr">0</span></h2><div class="list" id="approvals"></div></div>
+      <div class="panel rec-panel"><h2>Recomendações dos departamentos <span class="count" id="nRec">0</span></h2><div class="list" id="recs"></div></div>
     </div>
     <div class="grid2">
       <div class="panel"><h2>Relatórios</h2><div class="list" id="reports"></div></div>
@@ -131,6 +177,12 @@
     </div>
   </section>
 </main>
+
+<nav id="tabs">
+  <button data-tab="chat" class="on"><span class="ico">💬</span>MASON</button>
+  <button data-tab="painel"><span class="ico">🏢</span>Empresa</button>
+  <button data-tab="aprovacoes"><span class="ico">✅</span>Aprovações<span class="badge" id="tabBadge" hidden></span></button>
+</nav>
 
 <div id="modal"><div class="box" id="modalBox"></div></div>
 
@@ -164,6 +216,7 @@ const when = iso => iso ? new Date(iso).toLocaleString("pt-BR", {day:"2-digit", 
 async function api(path, opts = {}) {
   const r = await fetch(path, {headers: {"Content-Type": "application/json"}, ...opts});
   const data = await r.json().catch(() => ({}));
+  if (r.status === 401) { showLogin(); throw new Error("Faça login"); }
   if (!r.ok) throw new Error(data.detail || r.statusText);
   return data;
 }
@@ -175,27 +228,46 @@ function addMsg(role, text, cls = "") {
   d.innerHTML = role === "assistant" ? `<div class="who">MASON</div>${md(text)}` : esc(text).replace(/\n/g, "<br>");
   $("#msgs").appendChild(d); $("#msgs").scrollTop = 1e9; return d;
 }
-async function loadChat() {
+let chatShown = -1, polling = false;
+function renderChat(h) {
+  if (h.messages.length === chatShown && !h.busy && !h.error) return;
   $("#msgs").innerHTML = "";
-  const h = await api("/api/chat");
-  if (!h.length) addMsg("assistant", "Olá! Sou o MASON, supervisor do escritório. Diga o que precisa: posso distribuir trabalhos aos departamentos, acompanhar o andamento e trazer relatórios.");
-  h.forEach(m => addMsg(m.role, m.text));
+  if (!h.messages.length) addMsg("assistant", "Olá! Sou o MASON, supervisor do escritório. Diga o que precisa: posso distribuir trabalhos aos departamentos, acompanhar o andamento e trazer relatórios.");
+  h.messages.forEach(m => addMsg(m.role, m.text));
+  if (h.busy) addMsg("assistant", "Analisando…", "pending");
+  else if (h.error) addMsg("assistant", "Erro: " + h.error);
+  chatShown = h.busy || h.error ? -1 : h.messages.length;
+  $("#send").disabled = h.busy;
+}
+async function loadChat() {
+  const h = await api("/api/chat"); renderChat(h);
+  if (h.busy) pollChat();
+}
+async function pollChat() {
+  // a resposta é gerada no servidor; aqui só acompanhamos (sobrevive a tela bloqueada e rede instável)
+  if (polling) return; polling = true;
+  try {
+    while (true) {
+      await new Promise(r => setTimeout(r, 2000));
+      let h; try { h = await api("/api/chat"); } catch (e) { continue; }
+      renderChat(h);
+      if (!h.busy) { refresh(); break; }
+    }
+  } finally { polling = false; }
 }
 async function send(text) {
   text = text.trim(); if (!text) return;
   $("#input").value = ""; $("#send").disabled = true;
-  addMsg("user", text);
-  const p = addMsg("assistant", "Analisando…", "pending");
-  try {
-    const r = await api("/api/chat", {method: "POST", body: JSON.stringify({message: text})});
-    p.remove(); addMsg("assistant", r.reply || "(sem resposta)");
-  } catch (e) { p.classList.remove("pending"); p.innerHTML = `<div class="who">MASON</div><span style="color:var(--bad)">Erro: ${esc(e.message)}</span>`; }
-  $("#send").disabled = false; refresh();
+  addMsg("user", text); addMsg("assistant", "Analisando…", "pending"); chatShown = -1;
+  try { await api("/api/chat", {method: "POST", body: JSON.stringify({message: text})}); }
+  catch (e) { addMsg("assistant", "Erro: " + e.message); $("#send").disabled = false; return; }
+  pollChat();
 }
 $("#chatform").onsubmit = e => { e.preventDefault(); send($("#input").value); };
 $("#input").onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("#input").value); } };
 document.querySelectorAll(".quick button").forEach(b => b.onclick = () => send(b.textContent));
-$("#btnReset").onclick = async () => { if (confirm("Começar uma nova conversa com o MASON? (a empresa, as tarefas e a memória continuam)")) { await api("/api/chat/reset", {method: "POST"}); loadChat(); } };
+$("#btnReset").onclick = async () => { if (confirm("Começar uma nova conversa com o MASON? (a empresa, as tarefas e a memória continuam)")) {
+  try { await api("/api/chat/reset", {method: "POST"}); chatShown = -1; loadChat(); } catch (e) { alert(e.message); } } };
 
 // ---------------- painel
 function card(t) {
@@ -231,6 +303,7 @@ function render(ov) {
     + `<div class="col"><h3>Concluídas recentes</h3>${ov.recent_done.map(card).join("")}${ov.failed.length ? `<h3 style="margin-top:8px;color:var(--bad)">Falharam</h3>${ov.failed.map(card).join("")}` : ""}</div>`;
 
   $("#nAppr").textContent = ov.pending_approvals.length;
+  $("#tabBadge").hidden = !ov.pending_approvals.length; $("#tabBadge").textContent = ov.pending_approvals.length;
   const ap = $("#approvals"), typing = ap.contains(document.activeElement);
   if (!typing) ap.innerHTML = ov.pending_approvals.map(a => `<div class="item"><div class="t">${esc(a.title)}</div>
       <div class="d">${esc(a.details)}</div>
@@ -281,7 +354,8 @@ async function openRec(id) {
 }
 async function setRec(id, s) { await api(`/api/recommendations/${id}/${s}`, {method: "POST"}); closeModal(); refresh(); }
 $("#btnReport").onclick = async () => { const r = await api("/api/reports/generate", {method: "POST"}); alert(r.message); };
-$("#btnMemory").onclick = async () => {
+async function logout() { await fetch("/api/logout", {method: "POST"}); location.reload(); }
+async function showMemory() {
   const m = await api("/api/memory");
   modal(`<h2>Memória da empresa</h2>${m.map(x => `<div class="item"><div class="t">${esc(x.key)} <span class="tag">${esc(x.scope)}</span></div><div class="d">${esc(x.content)}</div><div class="d">${esc(x.author)} · ${when(x.updated_at)}</div></div>`).join("") || '<div class="empty">Vazia por enquanto. O MASON e os departamentos guardam aqui fatos importantes sobre a empresa.</div>'}`);
 };
@@ -290,11 +364,32 @@ $("#btnSettings").onclick = () => {
   modal(`<h2>Configurações</h2>
     <p><label><input type="checkbox" id="sAuto" ${s.auto_review ? "checked" : ""}> MASON revisa cada entrega antes de marcar como concluída</label></p>
     <p><label>Relatório automático a cada <input type="number" id="sRep" min="0" step="1" value="${s.report_interval_hours || 0}" style="width:70px"> horas (0 = desligado)</label></p>
-    <p><button class="primary" onclick="saveSettings()">Salvar</button></p>`);
+    <p><button class="primary" onclick="saveSettings()">Salvar</button></p>
+    <p style="border-top:1px solid var(--line);padding-top:12px"><button onclick="showMemory()">Ver memória da empresa</button> <button class="bad" onclick="logout()">Sair</button></p>`);
 };
 async function saveSettings() { await api("/api/settings", {method: "POST", body: JSON.stringify({auto_review: $("#sAuto").checked, report_interval_hours: +$("#sRep").value})}); closeModal(); refresh(); }
 
-loadChat(); refresh(); setInterval(refresh, 4000);
+$("#btnMemory").onclick = showMemory;
+
+// ---------------- abas (celular)
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
+  document.body.className = "tab-" + b.dataset.tab;
+  document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+  if (b.dataset.tab === "chat") $("#msgs").scrollTop = 1e9;
+});
+
+// ---------------- login
+let timer = null;
+function showLogin() { $("#login").style.display = "flex"; clearInterval(timer); timer = null; setTimeout(() => $("#pw").focus(), 50); }
+$("#loginForm").onsubmit = async e => {
+  e.preventDefault(); $("#loginErr").textContent = "";
+  const r = await fetch("/api/login", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({password: $("#pw").value})});
+  if (!r.ok) { $("#loginErr").textContent = (await r.json().catch(() => ({}))).detail || "Erro ao entrar"; return; }
+  $("#login").style.display = "none"; $("#pw").value = ""; start();
+};
+function start() { loadChat(); refresh(); if (!timer) timer = setInterval(refresh, 5000); }
+fetch("/api/session").then(r => r.json()).then(s => s.logged_in ? start() : showLogin());
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 </script>
 </body>
 </html>

@@ -5,11 +5,11 @@ import logging
 import os
 import threading
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from . import agents, db
+from . import agents, auth, db
 from .worker import worker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -17,6 +17,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 app = FastAPI(title="Escritório Virtual MASON")
 STATIC = os.path.join(os.path.dirname(__file__), "static")
 _chat_lock = threading.Lock()
+_chat_state: dict[str, str | None] = {"error": None}
+
+PUBLIC_PATHS = {"/", "/login", "/api/login", "/api/session", "/manifest.webmanifest", "/sw.js",
+                "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/healthz"}
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    if request.url.path not in PUBLIC_PATHS and not auth.valid_token(request.cookies.get(auth.COOKIE)):
+        return JSONResponse({"detail": "Faça login"}, status_code=401)
+    return await call_next(request)
 
 
 @app.on_event("startup")
@@ -24,6 +35,10 @@ def _startup() -> None:
     db.init_db()
     if os.environ.get("MASON_DISABLE_WORKER") != "1":
         worker.start()
+
+
+class LoginIn(BaseModel):
+    password: str
 
 
 class ChatIn(BaseModel):
@@ -46,7 +61,49 @@ class SettingsIn(BaseModel):
 
 @app.get("/")
 def index() -> FileResponse:
-    return FileResponse(os.path.join(STATIC, "index.html"))
+    return FileResponse(os.path.join(STATIC, "index.html"), headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
+
+for _name, _type in (("manifest.webmanifest", "application/manifest+json"), ("sw.js", "text/javascript"),
+                     ("icon-192.png", "image/png"), ("icon-512.png", "image/png"),
+                     ("apple-touch-icon.png", "image/png")):
+    def _serve(name: str = _name, media: str = _type) -> FileResponse:
+        return FileResponse(os.path.join(STATIC, name), media_type=media, headers={"Cache-Control": "no-cache"})
+    app.add_api_route(f"/{_name}", _serve, methods=["GET"])
+
+
+@app.get("/api/session")
+def session(request: Request):
+    return {"logged_in": auth.valid_token(request.cookies.get(auth.COOKIE)),
+            "password_required": auth.password() is not None}
+
+
+@app.post("/api/login")
+def login(body: LoginIn, request: Request, response: Response):
+    if not auth.password():
+        return {"ok": True}
+    client = request.headers.get("x-forwarded-for", request.client.host if request.client else "?").split(",")[0].strip()
+    try:
+        ok = auth.check_password(body.password, client)
+    except PermissionError as e:
+        raise HTTPException(429, str(e))
+    if not ok:
+        raise HTTPException(401, "Senha incorreta")
+    https = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+    response.set_cookie(auth.COOKIE, auth.make_token(), max_age=auth.SESSION_DAYS * 86400,
+                        httponly=True, samesite="lax", secure=https)
+    return {"ok": True}
+
+
+@app.post("/api/logout")
+def logout(response: Response):
+    response.delete_cookie(auth.COOKIE)
+    return {"ok": True}
 
 
 @app.get("/api/overview")
@@ -88,26 +145,36 @@ def task_cancel(task_id: int):
 
 @app.get("/api/chat")
 def chat_history():
-    return agents.mason_chat_history()
+    return {"messages": agents.mason_chat_history(), "busy": _chat_lock.locked(), "error": _chat_state["error"]}
 
 
 @app.post("/api/chat")
 def chat(body: ChatIn):
+    """Inicia a resposta do MASON em segundo plano. O app acompanha por GET /api/chat,
+    então a resposta não se perde se o celular bloquear a tela ou a conexão cair."""
     if not body.message.strip():
         raise HTTPException(400, "Mensagem vazia")
     if not _chat_lock.acquire(blocking=False):
         raise HTTPException(409, "MASON ainda está respondendo a mensagem anterior")
-    try:
-        res = agents.chat_with_mason(body.message)
-        return {"reply": res.text, "tools": res.tool_calls}
-    except RuntimeError as e:
-        raise HTTPException(502, str(e))
-    finally:
-        _chat_lock.release()
+    _chat_state["error"] = None
+
+    def run() -> None:
+        try:
+            agents.chat_with_mason(body.message)
+        except Exception as e:
+            logging.getLogger("mason.chat").exception("Falha no chat")
+            _chat_state["error"] = str(e)
+        finally:
+            _chat_lock.release()
+
+    threading.Thread(target=run, daemon=True, name="mason-chat").start()
+    return {"ok": True}
 
 
 @app.post("/api/chat/reset")
 def chat_reset():
+    if _chat_lock.locked():
+        raise HTTPException(409, "Espere o MASON terminar de responder")
     agents.reset_mason_chat()
     return {"ok": True}
 
