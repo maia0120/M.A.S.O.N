@@ -1,0 +1,133 @@
+/* Interclasse 2026: fonte do styles.css.
+   Para gerar de novo depois de mudar classes no index.html:
+     npx @tailwindcss/cli@4.3.3 -i tailwind.input.css -o styles.css
+   Tema "noite de jogo": fundo escuro, verde-limão elétrico como cor de ação,
+   vermelho só para "ao vivo", dourado para o Topo da Torcida. */
+@import "tailwindcss";
+@source "./index.html";
+
+@theme {
+  --font-sans: Barlow, system-ui, sans-serif;
+
+  --color-paper: #0a0e19;   /* fundo */
+  --color-card: #131a2b;    /* cartões */
+  --color-line: #232c44;    /* bordas */
+  --color-ink: #f2f5ff;     /* texto */
+  --color-mute: #8c97b6;    /* texto secundário */
+  --color-accent: #c6f432;  /* ação (verde-limão) */
+  --color-live: #ff4d61;    /* ao vivo / perigo */
+  --color-win: #3fe08f;     /* vitória */
+  --color-warn: #ffb02e;    /* atenção */
+  --color-gold: #ffcb45;
+  --color-silver: #cfd6e6;
+  --color-bronze: #e0955a;
+  --color-violet: #8b6cff;  /* segunda cor dos degradês */
+
+  --radius-md: 0.75rem;
+  --radius-lg: 1.1rem;
+}
+
+@layer base {
+  html { color-scheme: dark; }
+  body {
+    background:
+      radial-gradient(900px 500px at 10% -10%, color-mix(in oklab, var(--color-violet) 22%, transparent), transparent 60%),
+      radial-gradient(700px 420px at 100% 0%, color-mix(in oklab, var(--color-accent) 12%, transparent), transparent 60%),
+      var(--color-paper);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, .font-extrabold { font-family: "Barlow Condensed", Barlow, sans-serif; letter-spacing: .01em; }
+  h2 { text-wrap: balance; }
+  .font-extrabold, .tabular-nums { font-variant-numeric: tabular-nums; }
+  body { -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  input, select, textarea { font-size: 16px; }
+  ::placeholder { color: color-mix(in oklab, var(--color-mute) 75%, transparent); }
+  select option { background: var(--color-card); color: var(--color-ink); }
+  ::-webkit-scrollbar { height: 6px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 99px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+}
+
+@layer components {
+  /* Cabeçalhos translúcidos */
+  .vidro {
+    background: color-mix(in oklab, var(--color-paper) 78%, transparent);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  }
+  /* Logo "26" */
+  .logo-26 {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-violet));
+    color: var(--color-paper);
+    box-shadow: 0 8px 24px -8px color-mix(in oklab, var(--color-accent) 60%, transparent);
+  }
+  .texto-degrade {
+    background: linear-gradient(100deg, var(--color-ink) 10%, var(--color-accent) 55%, var(--color-violet) 95%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  /* Cartões de escolha da tela inicial */
+  .cartao-escolha {
+    position: relative; overflow: hidden;
+    background: linear-gradient(160deg, color-mix(in oklab, var(--color-card) 92%, white 3%), var(--color-card));
+    border: 1px solid var(--color-line);
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+  }
+  .cartao-escolha:not(:disabled):hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
+    box-shadow: 0 18px 40px -18px color-mix(in oklab, var(--color-accent) 55%, transparent);
+  }
+  .cartao-escolha::after {
+    content: ""; position: absolute; inset: auto -40% -60% auto; width: 70%; height: 120%;
+    background: radial-gradient(closest-side, color-mix(in oklab, var(--color-accent) 16%, transparent), transparent);
+    pointer-events: none;
+  }
+  .cartao-escolha.violeta::after { background: radial-gradient(closest-side, color-mix(in oklab, var(--color-violet) 22%, transparent), transparent); }
+  /* Brilho do botão principal */
+  .brilho { box-shadow: 0 10px 28px -10px color-mix(in oklab, var(--color-accent) 70%, transparent); }
+  /* Selo "ao vivo" pulsando */
+  .pulso { position: relative; }
+  .pulso::before {
+    content: ""; position: absolute; inset: -3px; border-radius: inherit;
+    border: 2px solid var(--color-live); opacity: .0; animation: pulso 1.8s ease-out infinite;
+  }
+  @keyframes pulso { 0% { opacity: .7; transform: scale(.98); } 100% { opacity: 0; transform: scale(1.04); } }
+  .cartao-vivo {
+    border-color: color-mix(in oklab, var(--color-live) 55%, transparent) !important;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-live) 25%, transparent), 0 18px 40px -22px color-mix(in oklab, var(--color-live) 80%, transparent);
+  }
+  .placar-num { font-family: "Barlow Condensed", Barlow, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+
+  /* Topo da Torcida */
+  .topo-card {
+    position: relative; border-radius: var(--radius-lg); padding: 1.1rem 1.1rem 1rem;
+    background:
+      linear-gradient(var(--color-card), var(--color-card)) padding-box,
+      linear-gradient(120deg, var(--color-gold), var(--color-accent), var(--color-violet)) border-box;
+    border: 2px solid transparent;
+    box-shadow: 0 20px 50px -28px color-mix(in oklab, var(--color-gold) 70%, transparent);
+  }
+  .topo-texto { font-size: 1.2rem; line-height: 1.35; font-weight: 700; color: var(--color-ink); margin-top: .5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .btn-topo {
+    display: flex; align-items: center; justify-content: center; gap: .5rem; width: 100%; margin-top: .9rem;
+    background: var(--color-accent); color: var(--color-paper); border-radius: var(--radius-md); padding: .8rem; font-weight: 700; font-size: .95rem;
+    box-shadow: 0 10px 28px -10px color-mix(in oklab, var(--color-accent) 70%, transparent);
+    transition: transform .15s ease, filter .15s ease;
+  }
+  .btn-topo:hover { filter: brightness(1.06); transform: translateY(-1px); }
+  .btn-topo:disabled, .btn-desab { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
+  .selo { display: inline-flex; align-items: center; gap: .3rem; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .selo-ex { background: color-mix(in oklab, var(--color-line) 60%, transparent); color: var(--color-mute); border: 1px solid var(--color-line); }
+  .aviso-lance { font-size: .82rem; color: var(--color-ink); background: color-mix(in oklab, var(--color-accent) 8%, var(--color-card)); border: 1px solid color-mix(in oklab, var(--color-accent) 30%, var(--color-line)); border-radius: var(--radius-md); padding: .6rem .8rem; }
+  .pix-box { border: 1px solid var(--color-line); border-radius: var(--radius-lg); padding: .9rem; display: grid; gap: .7rem; background: color-mix(in oklab, var(--color-paper) 60%, var(--color-card)); }
+  .pix-qr { background: #fff; border-radius: .9rem; padding: .6rem; width: fit-content; margin: 0 auto; }
+  .pix-qr svg { width: 190px; height: 190px; display: block; }
+  .pix-code { font-family: ui-monospace, monospace; font-size: 10px; color: var(--color-mute); word-break: break-all; user-select: all; }
+  .modal-rolagem { max-height: 92vh; overflow-y: auto; }
+  .resumo-clicavel { cursor: pointer; }
+  /* Janelas (modais) */
+  .janela { box-shadow: 0 30px 80px -20px rgb(0 0 0 / .7); }
+  /* Toast */
+  #toast { backdrop-filter: blur(10px); }
+}

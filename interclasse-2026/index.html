@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Interclasse 2026: placar ao vivo, classificação, artilharia e Topo da Torcida do campeonato de futsal entre turmas.">
-    <meta name="theme-color" content="#ffffff">
+    <meta name="theme-color" content="#0a0e19">
     <title>Interclasse 2026</title>
     <!-- Ícones -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
@@ -12,34 +12,6 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
-    <style>
-        /* Interclasse 2026 — visual de programa de jogo / placar de ginásio:
-           fundo branco, tinta preta, azul de uniforme como cor de ação, vermelho só para "ao vivo".
-           Números e títulos em Barlow Condensed, texto corrido em Barlow. */
-        h1, h2, h3, .font-extrabold { font-family: "Barlow Condensed", Barlow, sans-serif; letter-spacing: .01em; }
-        h2 { text-wrap: balance; }
-        .font-extrabold, .tabular-nums { font-variant-numeric: tabular-nums; }
-        body { -webkit-tap-highlight-color: transparent; }
-        :focus-visible { outline: 2px solid #1f45c9; outline-offset: 2px; }
-        input, select, textarea { font-size: 16px; }
-        @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
-        /* Topo da Torcida (leilão do post fixado) */
-        .topo-card { border: 2px solid var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, #fff); border-radius: .5rem; padding: 1rem; }
-        .topo-texto { font-size: 17px; font-weight: 600; color: var(--color-ink); margin-top: .5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-        .btn-topo { display: block; width: 100%; margin-top: .75rem; background: var(--color-accent); color: #fff; border-radius: .375rem; padding: .75rem; font-weight: 600; font-size: .9rem; }
-        .btn-topo:disabled, .btn-desab { opacity: .55; cursor: not-allowed; }
-        .post-destaque { border-color: var(--color-accent) !important; box-shadow: 0 0 0 1px var(--color-accent); }
-        .selo { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
-        .selo-topo { background: var(--color-gold); color: var(--color-ink); }
-        .selo-destaque { background: var(--color-accent); color: #fff; }
-        .selo-ex { background: var(--color-card); color: var(--color-mute); border: 1px solid var(--color-line); }
-        .aviso-lance { font-size: .8rem; color: var(--color-ink); background: var(--color-card); border: 1px solid var(--color-line); border-radius: .375rem; padding: .5rem .75rem; }
-        .pix-box { border: 1px solid var(--color-line); border-radius: .5rem; padding: .75rem; display: grid; gap: .6rem; }
-        .pix-qr svg { width: 190px; height: 190px; display: block; margin: 0 auto; }
-        .pix-code { font-family: ui-monospace, monospace; font-size: 10px; color: var(--color-mute); word-break: break-all; user-select: all; }
-        .modal-rolagem { max-height: 92vh; overflow-y: auto; }
-        .resumo-clicavel { cursor: pointer; }
-    </style>
     <!-- Firebase (banco de dados + login) e configuração do projeto -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -54,26 +26,27 @@
     <div id="tela-inicio" class="min-h-screen flex flex-col">
         <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-16 flex-grow">
             <div class="flex items-center gap-3 mb-8">
-                <div class="bg-ink text-paper w-12 h-12 rounded-md flex items-center justify-center font-extrabold text-2xl leading-none">26</div>
+                <div class="logo-26 w-12 h-12 rounded-md flex items-center justify-center font-extrabold text-2xl leading-none">26</div>
                 <div>
                     <h1 class="font-extrabold text-2xl uppercase text-ink leading-none">Interclasse 2026</h1>
                     <p class="text-sm text-mute mt-1">Futsal entre turmas · placar, tabela e torcida</p>
                 </div>
             </div>
-            <h2 class="text-5xl sm:text-6xl font-extrabold text-ink leading-[0.95] mb-3 uppercase">Como você vai entrar?</h2>
-            <p class="text-mute mb-8">Escolha seu tipo de acesso.</p>
+            <p class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-accent bg-accent/10 border border-accent/30 rounded-full px-3 py-1 mb-4"><i class="fa-solid fa-futbol"></i> Futsal entre turmas</p>
+            <h2 class="text-6xl sm:text-7xl font-extrabold leading-[0.9] mb-3 uppercase"><span class="texto-degrade">Bora pro jogo!</span></h2>
+            <p class="text-mute mb-8 text-lg">Placar ao vivo, tabela, artilharia e o Topo da Torcida. Como você vai entrar?</p>
             <div class="grid sm:grid-cols-2 gap-4">
-                <button onclick="entrarTorcedor()" class="text-left border border-line hover:border-ink rounded-lg p-6 transition group">
-                    <div class="w-12 h-12 rounded-md bg-accent/10 text-win flex items-center justify-center mb-4"><i class="fa-solid fa-bullhorn text-xl"></i></div>
+                <button onclick="entrarTorcedor()" class="cartao-escolha text-left rounded-lg p-6 group">
+                    <div class="w-14 h-14 rounded-md bg-accent text-paper brilho flex items-center justify-center mb-5"><i class="fa-solid fa-bullhorn text-2xl"></i></div>
                     <p class="text-3xl font-extrabold text-ink leading-tight">Sou torcedor</p>
                     <p class="text-sm text-mute mt-1">Acompanhe os jogos ao vivo e fixe a sua mensagem no topo para a escola toda ver.</p>
-                    <p class="text-sm font-semibold text-win mt-4">Entrar na torcida <i class="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition"></i></p>
+                    <p class="text-sm font-bold text-accent mt-5">Entrar na torcida <i class="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition"></i></p>
                 </button>
-                <button id="btn-entrar-gerente" onclick="entrarGerente()" class="text-left border border-line hover:border-ink rounded-lg p-6 transition group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-line">
-                    <div class="w-12 h-12 rounded-md bg-accent/10 text-accent flex items-center justify-center mb-4"><i class="fa-solid fa-clipboard-check text-xl"></i></div>
+                <button id="btn-entrar-gerente" onclick="entrarGerente()" class="cartao-escolha violeta text-left rounded-lg p-6 group disabled:opacity-50 disabled:cursor-not-allowed">
+                    <div class="w-14 h-14 rounded-md bg-violet/20 text-violet border border-violet/40 flex items-center justify-center mb-5"><i class="fa-solid fa-clipboard-check text-2xl"></i></div>
                     <p class="text-3xl font-extrabold text-ink leading-tight">Gerenciador do campeonato</p>
                     <p id="gerente-desc" class="text-sm text-mute mt-1">Placares ao vivo, súmulas, turmas e posts fixados.</p>
-                    <p id="gerente-cta" class="text-sm font-semibold text-accent mt-4">Abrir painel <i class="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition"></i></p>
+                    <p id="gerente-cta" class="text-sm font-bold text-violet mt-5">Abrir painel <i class="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition"></i></p>
                 </button>
             </div>
             <div id="inicio-aovivo" class="mt-10"></div>
@@ -84,7 +57,7 @@
 
     <!-- ================= ÁREA DO TORCEDOR ================= -->
     <div id="app-torcida" class="hidden min-h-screen flex flex-col">
-        <header class="bg-paper border-b border-line sticky top-0 z-40">
+        <header class="vidro border-b border-line sticky top-0 z-40">
             <div class="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="bg-accent text-paper w-10 h-10 shrink-0 rounded-md flex items-center justify-center"><i class="fa-solid fa-bullhorn"></i></div>
@@ -98,11 +71,11 @@
                     <button onclick="voltarInicio()" class="w-10 h-10 rounded-md text-mute hover:text-ink hover:bg-card" title="Trocar acesso"><i class="fa-solid fa-right-from-bracket"></i></button>
                 </div>
             </div>
-            <nav class="max-w-3xl mx-auto px-4 flex gap-1 pb-2">
+            <nav class="max-w-3xl mx-auto px-4 pb-3"><div class="flex gap-1 p-1 bg-card/80 border border-line rounded-lg">
                 <button onclick="mudarAbaTorcida('mural')" id="ttab-mural" class="ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fa-solid fa-thumbtack"></i> Topo</button>
                 <button onclick="mudarAbaTorcida('jogos')" id="ttab-jogos" class="ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fa-solid fa-futbol"></i> Jogos</button>
                 <button onclick="mudarAbaTorcida('tabela')" id="ttab-tabela" class="ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fa-solid fa-list-ol"></i> Tabela</button>
-            </nav>
+            </div></nav>
         </header>
         <main class="max-w-3xl mx-auto w-full px-4 py-5 flex-grow">
             <div id="torc-topo" class="space-y-2 mb-5"></div>
@@ -138,8 +111,8 @@
     </div>
 
     <!-- Modal perfil do torcedor -->
-    <div id="modal-perfil" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-sm">
+    <div id="modal-perfil" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-sm">
             <div class="p-5 border-b border-line">
                 <h3 class="font-bold text-ink">Quem é você na torcida?</h3>
                 <p class="text-xs text-mute">Seu nome aparece em cada post que você fizer.</p>
@@ -162,8 +135,8 @@
     </div>
 
     <!-- Modal post fixado (Topo da Torcida) -->
-    <div id="modal-lance" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-sm modal-rolagem">
+    <div id="modal-lance" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-sm modal-rolagem">
             <div class="p-5 border-b border-line">
                 <h3 class="font-bold text-ink"><i class="fa-solid fa-thumbtack text-accent"></i> Fixar meu post no topo</h3>
                 <p class="text-xs text-mute">R$ 1,50 por 5 minutos no topo, para todo mundo ver.</p>
@@ -190,8 +163,8 @@
     </div>
 
     <!-- Modal login do gerenciador (versão site) -->
-    <div id="modal-login" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-sm">
+    <div id="modal-login" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-sm">
             <div class="p-5 border-b border-line">
                 <h3 class="text-2xl font-extrabold text-ink">Entrar como gerenciador</h3>
                 <p class="text-sm text-mute">Acesso exclusivo do organizador do campeonato.</p>
@@ -218,10 +191,10 @@
     <div id="app-gerente" class="hidden min-h-screen flex flex-col">
 
     <!-- Header -->
-    <header class="bg-paper border-b border-line sticky top-0 z-50">
+    <header class="vidro border-b border-line sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <div class="bg-ink text-paper w-10 h-10 rounded-md flex items-center justify-center font-extrabold text-xl leading-none">26</div>
+                <div class="logo-26 w-10 h-10 rounded-md flex items-center justify-center font-extrabold text-xl leading-none">26</div>
                 <div>
                     <h1 class="font-extrabold text-lg tracking-tight text-ink flex items-center gap-2">
                         Interclasse 2026
@@ -245,9 +218,9 @@
     </header>
 
     <!-- Navegação de Abas -->
-    <nav class="bg-paper border-b border-line">
+    <nav class="vidro border-b border-line sticky top-16 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-4 overflow-x-auto">
-            <button onclick="mudarAba('tabela')" id="tab-tabela" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-ink text-ink whitespace-nowrap">
+            <button onclick="mudarAba('tabela')" id="tab-tabela" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-accent text-accent whitespace-nowrap">
                 <i class="fa-solid fa-list-ol"></i> Classificação
             </button>
             <button onclick="mudarAba('jogos')" id="tab-jogos" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-transparent text-mute hover:text-ink whitespace-nowrap">
@@ -306,7 +279,7 @@
                     <h2 class="text-3xl font-extrabold text-ink leading-tight">Gerenciamento de Jogos</h2>
                     <p class="text-sm text-mute">Cadastre novas partidas e registre placares em tempo real.</p>
                 </div>
-                <button onclick="abrirModalJogo()" class="bg-ink hover:bg-ink/85 text-paper px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
+                <button onclick="abrirModalJogo()" class="bg-accent hover:bg-accent/85 text-paper brilho px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
                     <i class="fa-solid fa-plus"></i> Novo Jogo
                 </button>
             </div>
@@ -367,7 +340,7 @@
                 <button onclick="adicionarTurmas1Ano()" class="bg-card hover:bg-line border border-line text-ink px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
                     <i class="fa-solid fa-layer-group"></i> 1º Ano A–E
                 </button>
-                <button onclick="abrirModalTurma()" class="bg-ink hover:bg-ink/85 text-paper px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
+                <button onclick="abrirModalTurma()" class="bg-accent hover:bg-accent/85 text-paper brilho px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
                     <i class="fa-solid fa-plus"></i> Adicionar Turma
                 </button>
                 </div>
@@ -406,7 +379,7 @@
                         <p class="text-xs text-mute">A chave aparece para quem for comprar. Cada pedido tem um código de 5 letras que vai junto no Pix: confira o valor e o código no extrato antes de aprovar.</p>
                         <div class="flex items-center justify-end gap-3">
                             <button id="ger-pix-fechar" type="button" onclick="fecharLances()" class="hidden px-4 py-2 rounded-md text-sm font-medium text-live">Fechar posts fixados</button>
-                            <button type="submit" class="bg-ink hover:bg-ink/85 text-paper px-4 py-2 rounded-md text-sm font-semibold">Salvar e abrir</button>
+                            <button type="submit" class="bg-accent hover:bg-accent/85 text-paper brilho px-4 py-2 rounded-md text-sm font-semibold">Salvar e abrir</button>
                         </div>
                     </form>
                 </details>
@@ -418,8 +391,8 @@
     <!-- ================= FIM ÁREA DO GERENCIADOR ================= -->
 
     <!-- Modal Novo/Editar Jogo -->
-    <div id="modal-jogo" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-md overflow-hidden">
+    <div id="modal-jogo" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-md overflow-hidden">
             <div class="p-5 border-b border-line flex items-center justify-between">
                 <h3 id="modal-jogo-titulo" class="font-bold text-ink">Cadastrar Nova Partida</h3>
                 <button onclick="fecharModalJogo()" class="text-mute hover:text-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -458,15 +431,15 @@
                 </div>
                 <div class="pt-3 flex items-center justify-end gap-3">
                     <button type="button" onclick="fecharModalJogo()" class="px-4 py-2 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
-                    <button type="submit" class="bg-ink hover:bg-ink/85 text-paper px-5 py-2 rounded-md text-sm font-medium transition">Salvar placar</button>
+                    <button type="submit" class="bg-accent hover:bg-accent/85 text-paper brilho px-5 py-2 rounded-md text-sm font-medium transition">Salvar placar</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Modal Súmula de Gols -->
-    <div id="modal-sumula" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-lg overflow-hidden">
+    <div id="modal-sumula" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-lg overflow-hidden">
             <div class="p-5 border-b border-line flex items-center justify-between">
                 <div>
                     <h3 class="font-bold text-ink">Súmula de Autores dos Gols</h3>
@@ -478,14 +451,14 @@
                 <!-- Gerado dinamicamente -->
             </div>
             <div class="p-4 border-t border-line bg-paper flex items-center justify-end gap-3">
-                <button type="button" onclick="salvarSumula()" class="w-full bg-ink hover:bg-ink/85 text-paper px-5 py-2.5 rounded-md text-sm font-medium transition">Confirmar Súmula</button>
+                <button type="button" onclick="salvarSumula()" class="w-full bg-accent hover:bg-accent/85 text-paper brilho px-5 py-2.5 rounded-md text-sm font-medium transition">Confirmar Súmula</button>
             </div>
         </div>
     </div>
 
     <!-- Modal Nova Turma -->
-    <div id="modal-turma" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-sm overflow-hidden">
+    <div id="modal-turma" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-sm overflow-hidden">
             <div class="p-5 border-b border-line flex items-center justify-between">
                 <h3 class="font-bold text-ink">Nova Turma / Sala</h3>
                 <button onclick="fecharModalTurma()" class="text-mute hover:text-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -497,20 +470,20 @@
                 </div>
                 <div class="pt-3 flex items-center justify-end gap-3">
                     <button type="button" onclick="fecharModalTurma()" class="px-4 py-2 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
-                    <button type="submit" class="bg-ink hover:bg-ink/85 text-paper px-5 py-2 rounded-md text-sm font-medium transition">Adicionar</button>
+                    <button type="submit" class="bg-accent hover:bg-accent/85 text-paper brilho px-5 py-2 rounded-md text-sm font-medium transition">Adicionar</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- Partida Ao Vivo -->
-    <div id="modal-aovivo" class="fixed inset-0 bg-paper sm:bg-ink/60 sm: z-[55] flex sm:items-center justify-center sm:p-4 hidden">
+    <div id="modal-aovivo" class="fixed inset-0 bg-paper sm:bg-black/70 backdrop-blur-sm sm: z-[55] flex sm:items-center justify-center sm:p-4 hidden">
         <div id="aovivo-corpo" class="bg-paper sm:border sm:border-line sm:rounded-lg w-full sm:max-w-xl h-full sm:h-auto sm:max-h-[94vh] overflow-y-auto flex flex-col"></div>
     </div>
 
     <!-- Modal Confirmação -->
-    <div id="modal-confirm" class="fixed inset-0 bg-ink/60 z-[60] flex items-center justify-center p-4 hidden">
-        <div class="bg-paper border border-line rounded-lg w-full max-w-sm p-5">
+    <div id="modal-confirm" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
+        <div class="janela bg-paper border border-line rounded-lg w-full max-w-sm p-5">
             <h3 id="confirm-titulo" class="font-bold text-ink mb-2"></h3>
             <p id="confirm-texto" class="text-sm text-mute"></p>
             <div class="pt-5 flex items-center justify-end gap-3">
@@ -609,12 +582,12 @@
         function mudarAba(abaId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('border-ink', 'text-ink');
+                el.classList.remove('border-accent', 'text-accent');
                 el.classList.add('border-transparent', 'text-mute');
             });
             document.getElementById(`view-${abaId}`).classList.remove('hidden');
             const btn = document.getElementById(`tab-${abaId}`);
-            btn.classList.add('border-ink', 'text-ink');
+            btn.classList.add('border-accent', 'text-accent');
             btn.classList.remove('border-transparent', 'text-mute');
             if (abaId === 'mural') renderizarMuralGerente();
         }
@@ -686,8 +659,8 @@
         function toast(msg, tipo = 'ok') {
             const el = document.getElementById('toast');
             el.textContent = msg;
-            el.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] px-4 py-3 rounded-md text-sm font-semibold border max-w-[92vw] ' +
-                (tipo === 'erro' ? 'bg-live text-paper border-live' : 'bg-ink text-paper border-ink');
+            el.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] px-4 py-3 rounded-lg text-sm font-semibold border max-w-[92vw] ' +
+                (tipo === 'erro' ? 'bg-live text-paper border-live' : 'bg-card/95 text-ink border-accent/50 shadow-2xl');
             clearTimeout(toast._t);
             toast._t = setTimeout(() => el.classList.add('hidden'), 3000);
         }
@@ -764,9 +737,9 @@
                             <p class="text-[11px] text-mute uppercase">Casa</p>
                         </div>
                         <div class="flex items-center gap-2 bg-paper rounded-md px-3 py-2 border border-line">
-                            <span class="text-2xl font-extrabold ${vencCasa ? 'text-ink' : 'text-mute'}">${j.golsCasa}</span>
+                            <span class="placar-num text-3xl ${vencCasa ? 'text-accent' : 'text-mute'}">${j.golsCasa}</span>
                             <span class="text-mute font-bold">×</span>
-                            <span class="text-2xl font-extrabold ${vencVis ? 'text-ink' : 'text-mute'}">${j.golsVisitante}</span>
+                            <span class="placar-num text-3xl ${vencVis ? 'text-accent' : 'text-mute'}">${j.golsVisitante}</span>
                         </div>
                         <div class="min-w-0">
                             <p class="font-bold truncate ${vencVis ? 'text-ink' : 'text-ink'}">${esc(j.visitante)}</p>
@@ -802,7 +775,7 @@
                 <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
                     <p class="font-bold text-ink truncate text-right">${esc(j.casa)}</p>
                     <div class="flex items-center gap-2 bg-paper rounded-md px-3 py-2 border border-line">
-                        <span class="text-2xl font-extrabold text-ink">${j.golsCasa}</span><span class="text-mute font-bold">×</span><span class="text-2xl font-extrabold text-ink">${j.golsVisitante}</span>
+                        <span class="placar-num text-4xl text-ink">${j.golsCasa}</span><span class="text-mute font-bold">×</span><span class="placar-num text-4xl text-ink">${j.golsVisitante}</span>
                     </div>
                     <p class="font-bold text-ink truncate">${esc(j.visitante)}</p>
                 </div>
@@ -933,7 +906,7 @@
                             <input id="av-nome" type="text" list="av-sugestoes" value="${esc(ev.nome)}" placeholder="Nome do atleta" autocomplete="off"
                                 onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarAutorDigitado();}"
                                 class="flex-1 min-w-0 bg-paper border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink">
-                            <button onclick="confirmarAutorDigitado()" class="px-4 rounded-md bg-ink hover:bg-ink/85 text-paper font-semibold text-sm">Salvar</button>
+                            <button onclick="confirmarAutorDigitado()" class="px-4 rounded-md bg-accent hover:bg-accent/85 text-paper brilho font-semibold text-sm">Salvar</button>
                         </div>
                         <datalist id="av-sugestoes">${sugestoes.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
                         ${sugestoes.length ? `<div class="flex flex-wrap gap-2">${sugestoes.map(n => `<button data-n="${esc(n)}" onclick="definirAutor(this.dataset.n)" class="px-3 py-2 rounded-lg bg-card hover:bg-line border border-line text-sm text-ink">${esc(n)}</button>`).join('')}</div>` : ''}
@@ -981,7 +954,7 @@
                     ${linhas ? `<ul class="divide-y divide-line">${linhas}</ul>` : '<p class="text-sm text-mute py-4">Nenhum gol ainda. Toque em <b class="text-ink">Gol</b> no time que marcar.</p>'}
                 </div>
                 <div class="p-4 sm:p-5 mt-4 border-t border-line sticky bottom-0 bg-paper">
-                    <button onclick="encerrarPartida()" class="w-full min-h-[48px] bg-ink hover:bg-ink/85 text-paper rounded-md font-bold text-sm"><i class="fa-solid fa-flag-checkered"></i> Encerrar partida</button>
+                    <button onclick="encerrarPartida()" class="w-full min-h-[48px] bg-accent hover:bg-accent/85 text-paper brilho rounded-md font-bold text-sm"><i class="fa-solid fa-flag-checkered"></i> Encerrar partida</button>
                 </div>`;
             if (golEmEdicao && window.innerWidth > 640) { const i = document.getElementById('av-nome'); if (i) i.focus(); }
         }
@@ -1318,7 +1291,7 @@
             document.querySelectorAll('.tview').forEach(el => el.classList.toggle('hidden', el.id !== 'tview-' + aba));
             document.querySelectorAll('.ttab-btn').forEach(el => {
                 const ativo = el.id === 'ttab-' + aba;
-                el.className = 'ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold transition ' + (ativo ? 'bg-ink text-paper' : 'text-mute hover:text-ink hover:bg-card');
+                el.className = 'ttab-btn flex-1 px-3 py-2.5 rounded-md text-sm font-bold transition ' + (ativo ? 'bg-accent text-paper brilho' : 'text-mute hover:text-ink hover:bg-line/50');
             });
             renderizarTorcida();
         }
@@ -1372,7 +1345,7 @@
         function diaSP(ms) { return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); }
         function brl(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
         function fmtMmSs(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
-        function hora(ms) { return new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+        function hora(ms) { return new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }); }
         function tempoRelativo(ts) {
             const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
             if (s < 45) return 'agora';
@@ -1672,14 +1645,14 @@
             const vivo = j.status === 'ao_vivo';
             const pausado = vivo && !j.relogio.desde;
             const eventos = vivo ? j.eventos.slice().reverse().slice(0, 6) : [];
-            return `<div class="bg-card border ${vivo ? 'border-live/40' : 'border-line'} rounded-lg p-4">
+            return `<div class="bg-card border ${vivo ? 'cartao-vivo' : 'border-line'} rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3 text-xs">
                     ${vivo ? `<span class="font-bold uppercase ${pausado ? 'text-warn' : 'text-live'}"><i class="fa-solid fa-circle text-[8px] ${pausado ? '' : 'animate-pulse'}"></i> ${pausado ? 'Intervalo' : 'Ao vivo'}</span><span class="font-mono text-ink" data-relogio="${esc(j.id)}">${fmtTempo(tempoMs(j))}</span>` : '<span class="text-mute uppercase font-semibold">Encerrado</span><span></span>'}
                 </div>
                 <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
                     <p class="font-bold text-ink truncate text-right">${esc(j.casa)}</p>
                     <div class="flex items-center gap-2 bg-paper rounded-md px-3 py-2 border border-line">
-                        <span class="text-2xl font-extrabold text-ink">${j.golsCasa}</span><span class="text-mute font-bold">×</span><span class="text-2xl font-extrabold text-ink">${j.golsVisitante}</span>
+                        <span class="placar-num text-4xl text-ink">${j.golsCasa}</span><span class="text-mute font-bold">×</span><span class="placar-num text-4xl text-ink">${j.golsVisitante}</span>
                     </div>
                     <p class="font-bold text-ink truncate">${esc(j.visitante)}</p>
                 </div>
