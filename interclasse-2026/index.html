@@ -1477,8 +1477,8 @@
                 <p class="text-xs font-semibold text-mute uppercase">Pague ${brl(PRECO_TOPO)} no Pix</p>
                 ${qr ? `<div class="pix-qr">${qr}</div>` : ''}
                 <button type="button" onclick="copiarPix()" class="w-full bg-ink text-paper rounded-md py-2.5 text-sm font-semibold"><i class="fa-regular fa-copy"></i> Copiar Pix copia e cola</button>
-                <p id="lance-pix-codigo" class="pix-code">${esc(codigo)}</p>
-                <p class="text-xs text-mute">Chave: <b class="text-ink">${esc(configPix.chave)}</b>${configPix.nome ? ' · ' + esc(configPix.nome) : ''}</p>
+                <p id="lance-pix-codigo" class="hidden">${esc(codigo)}</p>
+                <p class="text-xs text-mute text-center">Abra o app do seu banco e pague pelo QR Code ou pelo Pix copia e cola.</p>
             </div>`;
             document.getElementById('modal-lance').classList.remove('hidden');
             setTimeout(() => document.getElementById('lance-texto').focus(), 50);
