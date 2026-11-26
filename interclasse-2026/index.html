@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interclasse 2026: placar ao vivo, classificação, artilharia e mural da torcida do campeonato de futsal entre turmas.">
+    <meta name="theme-color" content="#ffffff">
+    <title>Interclasse 2026</title>
+    <!-- Ícones -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <!-- Estilos (Tailwind compilado) e fontes -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Interclasse 2026 — visual de programa de jogo / placar de ginásio:
+           fundo branco, tinta preta, azul de uniforme como cor de ação, vermelho só para "ao vivo".
+           Números e títulos em Barlow Condensed, texto corrido em Barlow. */
+        h1, h2, h3, .font-extrabold { font-family: "Barlow Condensed", Barlow, sans-serif; letter-spacing: .01em; }
+        h2 { text-wrap: balance; }
+        .font-extrabold, .tabular-nums { font-variant-numeric: tabular-nums; }
+        body { -webkit-tap-highlight-color: transparent; }
+        :focus-visible { outline: 2px solid #1f45c9; outline-offset: 2px; }
+        input, select, textarea { font-size: 16px; }
+        @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+    </style>
+    <!-- Supabase (banco de dados + login) e configuração do projeto -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+    <script src="config.js"></script>
+</head>
+<body class="bg-paper text-ink min-h-screen font-sans selection:bg-accent selection:text-paper">
+
+    <!-- ================= TELA INICIAL ================= -->
+    <div id="tela-inicio" class="min-h-screen flex flex-col">
+        <div class="max-w-3xl mx-auto w-full px-4 sm:px-6 py-10 sm:py-16 flex-grow">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="bg-ink text-paper w-12 h-12 rounded-md flex items-center justify-center font-extrabold text-2xl leading-none">26</div>
+                <div>
+                    <h1 class="font-extrabold text-2xl uppercase text-ink leading-none">Interclasse 2026</h1>
+                    <p class="text-sm text-mute mt-1">Futsal entre turmas · placar, tabela e torcida</p>
+                </div>
+            </div>
+            <h2 class="text-5xl sm:text-6xl font-extrabold text-ink leading-[0.95] mb-3 uppercase">Como você vai entrar?</h2>
+            <p class="text-mute mb-8">Escolha seu tipo de acesso.</p>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <button onclick="entrarTorcedor()" class="text-left border border-line hover:border-ink rounded-lg p-6 transition group">
+                    <div class="w-12 h-12 rounded-md bg-accent/10 text-win flex items-center justify-center mb-4"><i class="fa-solid fa-bullhorn text-xl"></i></div>
+                    <p class="text-3xl font-extrabold text-ink leading-tight">Sou torcedor</p>
+                    <p class="text-sm text-mute mt-1">Acompanhe os jogos ao vivo e solte o verbo no mural da sua sala.</p>
+                    <p class="text-sm font-semibold text-win mt-4">Entrar na torcida <i class="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition"></i></p>
+                </button>
+                <button id="btn-entrar-gerente" onclick="entrarGerente()" class="text-left border border-line hover:border-ink rounded-lg p-6 transition group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-line">
+                    <div class="w-12 h-12 rounded-md bg-accent/10 text-accent flex items-center justify-center mb-4"><i class="fa-solid fa-clipboard-check text-xl"></i></div>
+                    <p class="text-3xl font-extrabold text-ink leading-tight">Gerenciador do campeonato</p>
+                    <p id="gerente-desc" class="text-sm text-mute mt-1">Placares ao vivo, súmulas, turmas e moderação do mural.</p>
+                    <p id="gerente-cta" class="text-sm font-semibold text-accent mt-4">Abrir painel <i class="fa-solid fa-arrow-right ml-1 group-hover:translate-x-1 transition"></i></p>
+                </button>
+            </div>
+            <div id="inicio-aovivo" class="mt-10"></div>
+            <p id="aviso-local" class="hidden mt-8 text-xs text-warn bg-warn/10 border border-warn/40 rounded-md p-3"></p>
+        </div>
+    </div>
+
+    <!-- ================= ÁREA DO TORCEDOR ================= -->
+    <div id="app-torcida" class="hidden min-h-screen flex flex-col">
+        <header class="bg-paper border-b border-line sticky top-0 z-40">
+            <div class="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="bg-accent text-paper w-10 h-10 shrink-0 rounded-md flex items-center justify-center"><i class="fa-solid fa-bullhorn"></i></div>
+                    <div class="min-w-0">
+                        <p class="font-bold text-ink truncate" id="torc-nome-header">Torcida</p>
+                        <p class="text-xs text-mute truncate" id="torc-sala-header"></p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="abrirPerfilTorcedor()" class="w-10 h-10 rounded-md text-mute hover:text-ink hover:bg-card" title="Editar nome e sala"><i class="fa-solid fa-user-pen"></i></button>
+                    <button onclick="voltarInicio()" class="w-10 h-10 rounded-md text-mute hover:text-ink hover:bg-card" title="Trocar acesso"><i class="fa-solid fa-right-from-bracket"></i></button>
+                </div>
+            </div>
+            <nav class="max-w-3xl mx-auto px-4 flex gap-1 pb-2">
+                <button onclick="mudarAbaTorcida('mural')" id="ttab-mural" class="ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fa-solid fa-comments"></i> Mural</button>
+                <button onclick="mudarAbaTorcida('jogos')" id="ttab-jogos" class="ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fa-solid fa-futbol"></i> Jogos</button>
+                <button onclick="mudarAbaTorcida('tabela')" id="ttab-tabela" class="ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fa-solid fa-list-ol"></i> Tabela</button>
+            </nav>
+        </header>
+        <main class="max-w-3xl mx-auto w-full px-4 py-5 flex-grow">
+            <section id="tview-mural" class="tview space-y-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight">Mural das salas</h2>
+                    <p class="text-sm text-mute">Cada sala tem o seu mural. Zoe o adversário, apoie a sua turma — sem ofensas.</p>
+                </div>
+                <div id="torc-chips-mural" class="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4"></div>
+                <div id="torc-form-post"></div>
+                <div id="torc-lista-posts" class="space-y-3"></div>
+            </section>
+            <section id="tview-jogos" class="tview hidden space-y-4">
+                <h2 class="text-3xl font-extrabold text-ink leading-tight">Jogos</h2>
+                <div id="torc-jogos" class="space-y-3"></div>
+            </section>
+            <section id="tview-tabela" class="tview hidden space-y-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight">Classificação</h2>
+                    <p class="text-sm text-mute">Só partidas encerradas contam.</p>
+                </div>
+                <div id="torc-tabela" class="bg-card border border-line rounded-lg overflow-hidden"></div>
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight mb-3">Artilharia</h2>
+                    <div id="torc-artilharia" class="bg-card border border-line rounded-lg overflow-hidden"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal perfil do torcedor -->
+    <div id="modal-perfil" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-sm">
+            <div class="p-5 border-b border-line">
+                <h3 class="font-bold text-ink">Quem é você na torcida?</h3>
+                <p class="text-xs text-mute">Seu nome aparece em cada post que você fizer.</p>
+            </div>
+            <form onsubmit="salvarPerfilTorcedor(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="perfil-nome">Seu nome</label>
+                    <input id="perfil-nome" required maxlength="40" autocomplete="off" placeholder="Ex: Ana Souza" class="w-full bg-card border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="perfil-sala">Sua sala</label>
+                    <select id="perfil-sala" required class="w-full bg-card border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink"></select>
+                </div>
+                <div class="pt-2 flex items-center justify-end gap-3">
+                    <button type="button" onclick="fecharPerfil()" class="px-4 py-2.5 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
+                    <button type="submit" class="bg-accent hover:bg-accent/90 text-paper px-5 py-2.5 rounded-md text-sm font-semibold">Entrar na torcida</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal login do gerenciador (versão site) -->
+    <div id="modal-login" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-sm">
+            <div class="p-5 border-b border-line">
+                <h3 class="text-2xl font-extrabold text-ink">Entrar como gerenciador</h3>
+                <p class="text-sm text-mute">Acesso exclusivo do organizador do campeonato.</p>
+            </div>
+            <form onsubmit="fazerLogin(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="login-email">E-mail</label>
+                    <input id="login-email" type="email" required autocomplete="username" class="w-full bg-paper border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="login-senha">Senha</label>
+                    <input id="login-senha" type="password" required autocomplete="current-password" class="w-full bg-paper border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink">
+                </div>
+                <p id="login-erro" class="text-sm text-live min-h-[1.25rem]"></p>
+                <div class="flex items-center justify-end gap-3">
+                    <button type="button" onclick="fecharLogin()" class="px-4 py-2.5 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
+                    <button id="login-btn" type="submit" class="bg-ink hover:bg-ink/85 disabled:opacity-50 text-paper px-5 py-2.5 rounded-md text-sm font-semibold">Entrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= ÁREA DO GERENCIADOR ================= -->
+    <div id="app-gerente" class="hidden min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-paper border-b border-line sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-ink text-paper w-10 h-10 rounded-md flex items-center justify-center font-extrabold text-xl leading-none">26</div>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight text-ink flex items-center gap-2">
+                        Interclasse 2026
+                    </h1>
+                    <p class="text-xs text-mute">Painel do organizador</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="sairDoPainel()" class="flex items-center gap-1.5 text-xs font-medium bg-card hover:bg-line text-ink px-3 py-2 rounded-lg border border-line transition" title="Trocar acesso">
+                    <i class="fa-solid fa-right-from-bracket"></i><span class="hidden sm:inline"> Sair</span>
+                </button>
+                <button onclick="carregarExemplo()" class="hidden sm:flex items-center gap-1.5 text-xs font-medium bg-card hover:bg-line text-ink px-3 py-2 rounded-lg border border-line transition">
+                    <i class="fa-solid fa-rotate"></i> Carregar Exemplo
+                </button>
+                <button onclick="zerarTudo()" class="flex items-center gap-1.5 text-xs font-medium bg-live/10 hover:bg-live/10 text-live px-3 py-2 rounded-lg border border-live/40 transition">
+                    <i class="fa-solid fa-trash-can"></i> Zerar Tudo
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navegação de Abas -->
+    <nav class="bg-paper border-b border-line">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-4 overflow-x-auto">
+            <button onclick="mudarAba('tabela')" id="tab-tabela" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-ink text-ink whitespace-nowrap">
+                <i class="fa-solid fa-list-ol"></i> Classificação
+            </button>
+            <button onclick="mudarAba('jogos')" id="tab-jogos" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-transparent text-mute hover:text-ink whitespace-nowrap">
+                <i class="fa-solid fa-futbol"></i> Jogos & Placares
+            </button>
+            <button onclick="mudarAba('artilharia')" id="tab-artilharia" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-transparent text-mute hover:text-ink whitespace-nowrap">
+                <i class="fa-solid fa-shoe-prints"></i> Artilharia
+            </button>
+            <button onclick="mudarAba('turmas')" id="tab-turmas" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-transparent text-mute hover:text-ink whitespace-nowrap">
+                <i class="fa-solid fa-users-rectangle"></i> Turmas
+            </button>
+            <button onclick="mudarAba('mural')" id="tab-mural" class="tab-btn flex items-center gap-2 px-3 py-3 text-sm font-semibold border-b-2 border-transparent text-mute hover:text-ink whitespace-nowrap">
+                <i class="fa-solid fa-comments"></i> Mural <span id="badge-denuncias" class="hidden text-[10px] bg-live text-paper rounded-full px-1.5 py-0.5"></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+        <!-- ABA 1: TABELA DE CLASSIFICAÇÃO -->
+        <section id="view-tabela" class="view-section space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight">Tabela de Classificação</h2>
+                    <p class="text-sm text-mute">Atualizada automaticamente a cada placar lançado. Ordem: Vitórias, Empates, menos Derrotas, Saldo de Gols e Gols Pró.</p>
+                    <p id="aviso-aovivo" class="hidden mt-2 text-xs text-live"></p>
+                </div>
+            </div>
+
+            <div class="bg-card border border-line rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-paper text-mute uppercase text-[11px] font-bold tracking-wider border-b border-line">
+                                <th class="py-3 px-4 w-12 text-center">Pos</th>
+                                <th class="py-3 px-4">Turma / Sala</th>
+                                <th class="py-3 px-3 text-center">J</th>
+                                <th class="py-3 px-3 text-center">V</th>
+                                <th class="py-3 px-3 text-center">E</th>
+                                <th class="py-3 px-3 text-center">D</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-classificacao-body" class="divide-y divide-line">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 2: JOGOS E PLACARES -->
+        <section id="view-jogos" class="view-section hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight">Gerenciamento de Jogos</h2>
+                    <p class="text-sm text-mute">Cadastre novas partidas e registre placares em tempo real.</p>
+                </div>
+                <button onclick="abrirModalJogo()" class="bg-ink hover:bg-ink/85 text-paper px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-plus"></i> Novo Jogo
+                </button>
+            </div>
+
+            <div id="lista-jogos" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Preenchido via JS -->
+            </div>
+        </section>
+
+        <!-- ABA 3: ARTILHARIA -->
+        <section id="view-artilharia" class="view-section hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight">Chuteira de Ouro (Artilharia)</h2>
+                    <p class="text-sm text-mute">Contagem de gols por atleta computada automaticamente pelas súmulas.</p>
+                </div>
+            </div>
+
+            <!-- Pódio Top 3 -->
+            <div id="podio-artilheiros" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <!-- Preenchido via JS -->
+            </div>
+
+            <!-- Tabela Completa de Artilheiros -->
+            <div class="bg-card border border-line rounded-lg overflow-hidden">
+                <div class="p-4 border-b border-line flex items-center justify-between gap-4">
+                    <div class="relative flex-1 max-w-sm">
+                        <i class="fa-solid fa-search absolute left-3.5 top-3 text-mute text-sm"></i>
+                        <input type="text" id="busca-artilheiro" oninput="renderizarArtilharia()" placeholder="Buscar jogador ou turma..." class="w-full bg-paper border border-line rounded-md pl-10 pr-4 py-2 text-sm text-ink focus:outline-none focus:border-ink">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-paper text-mute uppercase text-[11px] font-bold tracking-wider border-b border-line">
+                                <th class="py-3 px-4 w-16 text-center">#</th>
+                                <th class="py-3 px-4">Atleta</th>
+                                <th class="py-3 px-4">Turma</th>
+                                <th class="py-3 px-4 text-center">Gols</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-artilharia-body" class="divide-y divide-line">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 4: TURMAS -->
+        <section id="view-turmas" class="view-section hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-ink leading-tight">Turmas Participantes</h2>
+                    <p class="text-sm text-mute">Gerencie as salas cadastradas no campeonato.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                <button onclick="adicionarTurmas1Ano()" class="bg-card hover:bg-line border border-line text-ink px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-layer-group"></i> 1º Ano A–E
+                </button>
+                <button onclick="abrirModalTurma()" class="bg-ink hover:bg-ink/85 text-paper px-4 py-2.5 rounded-md font-medium text-sm flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-plus"></i> Adicionar Turma
+                </button>
+                </div>
+            </div>
+
+            <div id="lista-turmas" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Preenchido via JS -->
+            </div>
+        </section>
+
+        <!-- ABA 5: MURAL (MODERAÇÃO) -->
+        <section id="view-mural" class="view-section hidden space-y-6">
+            <div>
+                <h2 class="text-3xl font-extrabold text-ink leading-tight">Mural da Torcida</h2>
+                <p class="text-sm text-mute">Veja os posts de todas as salas e apague o que passar do limite.</p>
+            </div>
+            <div id="ger-denuncias"></div>
+            <div id="ger-chips-mural" class="flex gap-2 overflow-x-auto pb-1"></div>
+            <div id="ger-lista-posts" class="space-y-3"></div>
+        </section>
+
+    </main>
+    </div>
+    <!-- ================= FIM ÁREA DO GERENCIADOR ================= -->
+
+    <!-- Modal Novo/Editar Jogo -->
+    <div id="modal-jogo" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-md overflow-hidden">
+            <div class="p-5 border-b border-line flex items-center justify-between">
+                <h3 id="modal-jogo-titulo" class="font-bold text-ink">Cadastrar Nova Partida</h3>
+                <button onclick="fecharModalJogo()" class="text-mute hover:text-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="form-jogo" onsubmit="salvarJogo(event)" class="p-5 space-y-4">
+                <input type="hidden" id="jogo-id">
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5">Time da Casa</label>
+                    <select id="jogo-casa" required class="w-full bg-card border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                        <!-- Preenchido via JS -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5">Time Visitante</label>
+                    <select id="jogo-visitante" required class="w-full bg-card border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                        <!-- Preenchido via JS -->
+                    </select>
+                </div>
+                <div id="bloco-aovivo" class="space-y-3">
+                    <button type="button" onclick="iniciarAoVivo()" class="w-full bg-live hover:bg-live/90 text-paper px-4 py-3.5 rounded-md font-semibold text-sm flex items-center justify-center gap-2 transition">
+                        <span class="relative flex h-2.5 w-2.5"><span class="hidden absolute inline-flex h-full w-full rounded-full bg-paper opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-paper"></span></span>
+                        Iniciar partida ao vivo
+                    </button>
+                    <p class="text-xs text-mute text-center">Placar começa em 0 × 0 e você lança cada gol, com o autor, na hora em que sair.</p>
+                    <div class="flex items-center gap-3 text-[11px] uppercase font-semibold text-mute"><span class="h-px flex-1 bg-card"></span>ou lance só o placar final<span class="h-px flex-1 bg-card"></span></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-mute uppercase mb-1.5">Gols Casa</label>
+                        <input type="number" id="jogo-gols-casa" min="0" value="0" class="w-full bg-card border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-mute uppercase mb-1.5">Gols Visitante</label>
+                        <input type="number" id="jogo-gols-visitante" min="0" value="0" class="w-full bg-card border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                    </div>
+                </div>
+                <div class="pt-3 flex items-center justify-end gap-3">
+                    <button type="button" onclick="fecharModalJogo()" class="px-4 py-2 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
+                    <button type="submit" class="bg-ink hover:bg-ink/85 text-paper px-5 py-2 rounded-md text-sm font-medium transition">Salvar placar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Súmula de Gols -->
+    <div id="modal-sumula" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-lg overflow-hidden">
+            <div class="p-5 border-b border-line flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-ink">Súmula de Autores dos Gols</h3>
+                    <p id="sumula-subtitulo" class="text-xs text-mute">Informe quem marcou os gols da partida</p>
+                </div>
+                <button onclick="fecharModalSumula()" class="text-mute hover:text-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="sumula-corpo" class="p-5 space-y-6 max-h-[70vh] overflow-y-auto">
+                <!-- Gerado dinamicamente -->
+            </div>
+            <div class="p-4 border-t border-line bg-paper flex items-center justify-end gap-3">
+                <button type="button" onclick="salvarSumula()" class="w-full bg-ink hover:bg-ink/85 text-paper px-5 py-2.5 rounded-md text-sm font-medium transition">Confirmar Súmula</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nova Turma -->
+    <div id="modal-turma" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-sm overflow-hidden">
+            <div class="p-5 border-b border-line flex items-center justify-between">
+                <h3 class="font-bold text-ink">Nova Turma / Sala</h3>
+                <button onclick="fecharModalTurma()" class="text-mute hover:text-ink"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="salvarTurma(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5">Nome da Turma</label>
+                    <input type="text" id="nova-turma-nome" required placeholder="Ex: 3º Ano A" class="w-full bg-card border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                </div>
+                <div class="pt-3 flex items-center justify-end gap-3">
+                    <button type="button" onclick="fecharModalTurma()" class="px-4 py-2 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
+                    <button type="submit" class="bg-ink hover:bg-ink/85 text-paper px-5 py-2 rounded-md text-sm font-medium transition">Adicionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Partida Ao Vivo -->
+    <div id="modal-aovivo" class="fixed inset-0 bg-paper sm:bg-ink/60 sm: z-[55] flex sm:items-center justify-center sm:p-4 hidden">
+        <div id="aovivo-corpo" class="bg-paper sm:border sm:border-line sm:rounded-lg w-full sm:max-w-xl h-full sm:h-auto sm:max-h-[94vh] overflow-y-auto flex flex-col"></div>
+    </div>
+
+    <!-- Modal Confirmação -->
+    <div id="modal-confirm" class="fixed inset-0 bg-ink/60 z-[60] flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-sm p-5">
+            <h3 id="confirm-titulo" class="font-bold text-ink mb-2"></h3>
+            <p id="confirm-texto" class="text-sm text-mute"></p>
+            <div class="pt-5 flex items-center justify-end gap-3">
+                <button type="button" onclick="fecharConfirm()" class="px-4 py-2 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
+                <button type="button" id="confirm-ok" onclick="executarConfirm()" class="bg-live hover:bg-live/90 text-paper px-5 py-2 rounded-md text-sm font-medium transition"></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="hidden"></div>
+
+    <!-- JavaScript Principal -->
+    <script>
+        // Estado Global
+        let estado = {
+            turmas: ["1º Ano A", "1º Ano B", "1º Ano C", "1º Ano D", "1º Ano E", "2º Ano B", "3º Ano A", "3º Ano B"],
+            jogos: [
+                { id: "1", casa: "3º Ano A", visitante: "3º Ano B", golsCasa: 3, golsVisitante: 1, artilheirosCasa: ["João Pedro", "João Pedro", "Lucas Silva"], artilheirosVisitante: ["Gabriel Souza"] },
+                { id: "2", casa: "1º Ano A", visitante: "2º Ano B", golsCasa: 2, golsVisitante: 2, artilheirosCasa: ["Matheus", "Carlos"], artilheirosVisitante: ["Bruno", "Bruno"] }
+            ]
+        };
+
+        // Carregar do localStorage se existir
+        const EXEMPLO = JSON.parse(JSON.stringify(estado));
+        function supabaseConfigurado() {
+            const c = window.SUPABASE_CONFIG;
+            return !!(c && c.url && c.anonKey && window.supabase && window.supabase.createClient);
+        }
+        try {
+            const salvo = localStorage.getItem('interclasse_state');
+            if (salvo) {
+                const dados = JSON.parse(salvo);
+                if (dados && Array.isArray(dados.turmas) && Array.isArray(dados.jogos)) estado = dados;
+            } else if (supabaseConfigurado()) {
+                estado = { turmas: ["1º Ano A", "1º Ano B", "1º Ano C", "1º Ano D", "1º Ano E"], jogos: [], turmas1AnoV2: true };
+            }
+        } catch(e) {}
+        // Garante as turmas do 1º ano A até E em dados já salvos
+        const TURMAS_1ANO = ["1º Ano A", "1º Ano B", "1º Ano C", "1º Ano D", "1º Ano E"];
+        function incluirTurmas1Ano() {
+            let novas = 0;
+            TURMAS_1ANO.forEach(t => {
+                if (!estado.turmas.some(x => x.toLowerCase() === t.toLowerCase())) { estado.turmas.push(t); novas++; }
+            });
+            return novas;
+        }
+        if (!estado.turmas1AnoV2) {
+            incluirTurmas1Ano();
+            estado.turmas1AnoV2 = true;
+            try { localStorage.setItem('interclasse_state', JSON.stringify(estado)); } catch(e) {}
+        }
+        function normalizarEstado(est) {
+          if (!est || !Array.isArray(est.turmas) || !Array.isArray(est.jogos)) return null;
+          est.turmas = est.turmas.filter(t => typeof t === 'string');
+          est.jogos.forEach(j => {
+            j.golsCasa = Number(j.golsCasa) || 0;
+            j.golsVisitante = Number(j.golsVisitante) || 0;
+            if (!Array.isArray(j.artilheirosCasa)) j.artilheirosCasa = [];
+            if (!Array.isArray(j.artilheirosVisitante)) j.artilheirosVisitante = [];
+            if (j.status !== 'ao_vivo') j.status = 'encerrado';
+            if (j.status === 'ao_vivo') {
+                if (!Array.isArray(j.eventos)) j.eventos = [];
+                if (!j.relogio) j.relogio = { acumulado: 0, desde: null };
+            }
+          });
+          return est;
+        }
+        normalizarEstado(estado);
+
+        // ===== Banco compartilhado =====
+        let db = null, usuario = null, meuId = null, souDono = null, podeEscrever = null;
+        let dbPronto = false;
+        let gravando = false, pendente = false;
+
+        async function gravarCampeonato() {
+            if (!db) return;
+            if (gravando) { pendente = true; return; }
+            gravando = true;
+            try {
+                await db.doc('camp/estado').set(JSON.parse(JSON.stringify(estado)));
+            } catch (e) {
+                toast(e && e.code === 'quota_exceeded' ? 'O banco do campeonato está cheio.' : 'Não foi possível salvar no servidor. Tente de novo.', 'erro');
+            } finally {
+                gravando = false;
+                if (pendente) { pendente = false; gravarCampeonato(); }
+            }
+        }
+
+        function salvarEstado() {
+            try { localStorage.setItem('interclasse_state', JSON.stringify(estado)); } catch(e) {}
+            if (db && souDono !== false) gravarCampeonato();
+            atualizarTudo();
+        }
+
+        // Navegação de Abas
+        function mudarAba(abaId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-ink', 'text-ink');
+                el.classList.add('border-transparent', 'text-mute');
+            });
+            document.getElementById(`view-${abaId}`).classList.remove('hidden');
+            const btn = document.getElementById(`tab-${abaId}`);
+            btn.classList.add('border-ink', 'text-ink');
+            btn.classList.remove('border-transparent', 'text-mute');
+            if (abaId === 'mural') renderizarMuralGerente();
+        }
+
+        // Atualizar Interface Inteira
+        function atualizarTudo() {
+            renderizarInicio();
+            renderizarTorcida();
+            if (modo === 'gerente') renderizarMuralGerente();
+            renderizarTabelaClassificacao();
+            renderizarJogos();
+            renderizarArtilharia();
+            renderizarTurmas();
+            atualizarSelectsJogos();
+        }
+
+        // 1. Tabela de Classificação
+        function calcularClassificacao() {
+            const tabela = {};
+            estado.turmas.forEach(t => {
+                tabela[t] = { nome: t, p: 0, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 };
+            });
+
+            estado.jogos.filter(j => j.status !== 'ao_vivo').forEach(j => {
+                if (!tabela[j.casa]) tabela[j.casa] = { nome: j.casa, p: 0, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 };
+                if (!tabela[j.visitante]) tabela[j.visitante] = { nome: j.visitante, p: 0, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 };
+
+                let c = tabela[j.casa];
+                let v = tabela[j.visitante];
+
+                c.j++; v.j++;
+                c.gp += j.golsCasa; c.gc += j.golsVisitante;
+                v.gp += j.golsVisitante; v.gc += j.golsCasa;
+
+                if (j.golsCasa > j.golsVisitante) {
+                    c.v++; c.p += 3;
+                    v.d++;
+                } else if (j.golsCasa < j.golsVisitante) {
+                    v.v++; v.p += 3;
+                    c.d++;
+                } else {
+                    c.e++; c.p += 1;
+                    v.e++; v.p += 1;
+                }
+            });
+
+            Object.values(tabela).forEach(t => t.sg = t.gp - t.gc);
+
+            return Object.values(tabela).sort((a, b) => {
+                if (b.v !== a.v) return b.v - a.v;
+                if (b.e !== a.e) return b.e - a.e;
+                if (a.d !== b.d) return a.d - b.d;
+                if (b.sg !== a.sg) return b.sg - a.sg;
+                if (b.gp !== a.gp) return b.gp - a.gp;
+                return a.nome.localeCompare(b.nome, 'pt-BR');
+            });
+        }
+
+        // Utilitários
+        function esc(txt) {
+            return String(txt ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function novoId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+        function iniciais(nome) {
+            return String(nome).split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
+        }
+
+        function toast(msg, tipo = 'ok') {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[70] px-4 py-3 rounded-md text-sm font-semibold border max-w-[92vw] ' +
+                (tipo === 'erro' ? 'bg-live text-paper border-live' : 'bg-ink text-paper border-ink');
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+        // Diálogo de confirmação (substitui confirm(), que não funciona em todos os ambientes)
+        let acaoConfirmada = null;
+        function confirmar(titulo, texto, rotuloBotao, acao) {
+            document.getElementById('confirm-titulo').textContent = titulo;
+            document.getElementById('confirm-texto').textContent = texto;
+            document.getElementById('confirm-ok').textContent = rotuloBotao;
+            acaoConfirmada = acao;
+            document.getElementById('modal-confirm').classList.remove('hidden');
+        }
+        function fecharConfirm() { document.getElementById('modal-confirm').classList.add('hidden'); acaoConfirmada = null; }
+        function executarConfirm() { const a = acaoConfirmada; fecharConfirm(); if (a) a(); }
+
+        // Render: Classificação
+        function renderizarTabelaClassificacao() {
+            const corpo = document.getElementById('tabela-classificacao-body');
+            const aoVivo = estado.jogos.filter(j => j.status === 'ao_vivo').length;
+            const aviso = document.getElementById('aviso-aovivo');
+            aviso.classList.toggle('hidden', !aoVivo);
+            aviso.textContent = aoVivo ? `${aoVivo} partida${aoVivo > 1 ? 's' : ''} em andamento. Ela${aoVivo > 1 ? 's' : ''} entra${aoVivo > 1 ? 'm' : ''} na tabela quando for${aoVivo > 1 ? 'em' : ''} encerrada${aoVivo > 1 ? 's' : ''}.` : '';
+            const linhas = calcularClassificacao();
+            if (!linhas.length) {
+                corpo.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-mute"><i class="fa-solid fa-table-list text-2xl mb-2 block"></i>Nenhuma turma cadastrada ainda.</td></tr>`;
+                return;
+            }
+            corpo.innerHTML = linhas.map((t, i) => {
+                const pos = i + 1;
+                const corPos = pos === 1 ? 'bg-gold text-ink' : pos === 2 ? 'bg-silver text-ink' : pos === 3 ? 'bg-bronze text-paper' : 'bg-line text-ink';
+                return `<tr class="hover:bg-card transition">
+                    <td class="py-3 px-4 text-center"><span class="inline-flex w-7 h-7 items-center justify-center rounded-lg text-xs font-bold ${corPos}">${pos}</span></td>
+                    <td class="py-3 px-4 font-semibold text-ink whitespace-nowrap">${esc(t.nome)}</td>
+                    <td class="py-3 px-3 text-center font-semibold text-ink">${t.j}</td>
+                    <td class="py-3 px-3 text-center font-semibold text-win">${t.v}</td>
+                    <td class="py-3 px-3 text-center font-semibold text-ink">${t.e}</td>
+                    <td class="py-3 px-3 text-center font-semibold text-live">${t.d}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Render: Jogos
+        function statusSumula(j) {
+            const total = j.golsCasa + j.golsVisitante;
+            const feitos = j.artilheirosCasa.filter(Boolean).length + j.artilheirosVisitante.filter(Boolean).length;
+            return { total, feitos };
+        }
+
+        function renderizarJogos() {
+            const lista = document.getElementById('lista-jogos');
+            if (!estado.jogos.length) {
+                lista.innerHTML = `<div class="md:col-span-2 text-center py-14 border border-dashed border-line rounded-lg text-mute">
+                    <i class="fa-solid fa-futbol text-3xl mb-3 block"></i>Nenhuma partida cadastrada. Clique em <b class="text-ink">Novo Jogo</b> para começar.</div>`;
+                return;
+            }
+            const ordenados = estado.jogos.slice().reverse().sort((a, b) => (b.status === 'ao_vivo') - (a.status === 'ao_vivo'));
+            lista.innerHTML = ordenados.map(j => {
+                if (j.status === 'ao_vivo') return cardAoVivo(j);
+                const { total, feitos } = statusSumula(j);
+                const vencCasa = j.golsCasa > j.golsVisitante, vencVis = j.golsVisitante > j.golsCasa;
+                const selo = total === 0 ? '<span class="text-mute">Sem gols</span>'
+                    : feitos >= total ? '<span class="text-win"><i class="fa-solid fa-circle-check"></i> Súmula completa</span>'
+                    : `<span class="text-warn"><i class="fa-solid fa-triangle-exclamation"></i> Súmula ${feitos}/${total}</span>`;
+                const marcadores = (arr) => {
+                    const cont = {};
+                    arr.filter(Boolean).forEach(n => cont[n] = (cont[n] || 0) + 1);
+                    return Object.entries(cont).map(([n, q]) => `<span class="block truncate">${esc(n)}${q > 1 ? ` <span class="text-mute">×${q}</span>` : ''}</span>`).join('');
+                };
+                return `<div class="bg-card border border-line rounded-lg p-4">
+                    <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+                        <div class="text-right min-w-0">
+                            <p class="font-bold truncate ${vencCasa ? 'text-ink' : 'text-ink'}">${esc(j.casa)}</p>
+                            <p class="text-[11px] text-mute uppercase">Casa</p>
+                        </div>
+                        <div class="flex items-center gap-2 bg-paper rounded-md px-3 py-2 border border-line">
+                            <span class="text-2xl font-extrabold ${vencCasa ? 'text-ink' : 'text-mute'}">${j.golsCasa}</span>
+                            <span class="text-mute font-bold">×</span>
+                            <span class="text-2xl font-extrabold ${vencVis ? 'text-ink' : 'text-mute'}">${j.golsVisitante}</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-bold truncate ${vencVis ? 'text-ink' : 'text-ink'}">${esc(j.visitante)}</p>
+                            <p class="text-[11px] text-mute uppercase">Visitante</p>
+                        </div>
+                    </div>
+                    ${feitos ? `<div class="grid grid-cols-2 gap-6 mt-3 text-xs text-mute">
+                        <div class="text-right min-w-0">${marcadores(j.artilheirosCasa)}</div>
+                        <div class="min-w-0">${marcadores(j.artilheirosVisitante)}</div>
+                    </div>` : ''}
+                    <div class="mt-4 pt-3 border-t border-line flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-medium">${selo}</span>
+                        <div class="flex items-center gap-1">
+                            <button onclick="abrirModalSumula('${esc(j.id)}')" ${total === 0 ? 'disabled' : ''} class="text-xs px-3 py-2 rounded-lg bg-accent/10 text-accent hover:bg-accent/15 disabled:opacity-40 disabled:cursor-not-allowed"><i class="fa-solid fa-clipboard-list"></i> Súmula</button>
+                            <button onclick="abrirModalJogo('${esc(j.id)}')" class="text-xs px-3 py-2 rounded-lg text-ink hover:bg-line" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="excluirJogo('${esc(j.id)}')" class="text-xs px-3 py-2 rounded-lg text-live hover:bg-live/10" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function cardAoVivo(j) {
+            const pausado = !j.relogio.desde;
+            return `<div class="border border-live/40 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="inline-flex items-center gap-2 text-[11px] font-bold uppercase ${pausado ? 'text-warn' : 'text-live'}">
+                        <span class="relative flex h-2 w-2">${pausado ? '' : '<span class="hidden absolute inline-flex h-full w-full rounded-full bg-live opacity-75"></span>'}<span class="relative inline-flex rounded-full h-2 w-2 ${pausado ? 'bg-gold' : 'bg-live'}"></span></span>
+                        ${pausado ? 'Pausada' : 'Ao vivo'}
+                    </span>
+                    <span class="font-mono text-sm text-ink" data-relogio="${esc(j.id)}">${fmtTempo(tempoMs(j))}</span>
+                </div>
+                <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+                    <p class="font-bold text-ink truncate text-right">${esc(j.casa)}</p>
+                    <div class="flex items-center gap-2 bg-paper rounded-md px-3 py-2 border border-line">
+                        <span class="text-2xl font-extrabold text-ink">${j.golsCasa}</span><span class="text-mute font-bold">×</span><span class="text-2xl font-extrabold text-ink">${j.golsVisitante}</span>
+                    </div>
+                    <p class="font-bold text-ink truncate">${esc(j.visitante)}</p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-line flex items-center gap-2">
+                    <button onclick="abrirAoVivo('${esc(j.id)}')" class="flex-1 text-sm font-semibold px-3 py-2.5 rounded-lg bg-live hover:bg-live/90 text-paper"><i class="fa-solid fa-tower-broadcast"></i> Abrir placar ao vivo</button>
+                    <button onclick="excluirJogo('${esc(j.id)}')" class="text-xs px-3 py-2.5 rounded-lg text-live hover:bg-live/10" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>`;
+        }
+
+        // ===== Partida ao vivo =====
+        let aoVivoId = null;
+        let golEmEdicao = null; // { eventoId, novo }
+
+        function tempoMs(j) {
+            const r = j.relogio || { acumulado: 0, desde: null };
+            return r.acumulado + (r.desde ? Date.now() - r.desde : 0);
+        }
+        function fmtTempo(ms) {
+            const t = Math.floor(ms / 1000);
+            return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+        }
+        function jogoAoVivo() { return estado.jogos.find(j => j.id === aoVivoId); }
+
+        function recomputarGols(j) {
+            j.artilheirosCasa = j.eventos.filter(e => e.lado === 'casa').map(e => e.nome);
+            j.artilheirosVisitante = j.eventos.filter(e => e.lado === 'visitante').map(e => e.nome);
+            j.golsCasa = j.artilheirosCasa.length;
+            j.golsVisitante = j.artilheirosVisitante.length;
+        }
+
+        function iniciarAoVivo() {
+            const casa = document.getElementById('jogo-casa').value;
+            const visitante = document.getElementById('jogo-visitante').value;
+            if (casa === visitante) { toast('Uma turma não pode jogar contra ela mesma.', 'erro'); return; }
+            const jogo = { id: novoId(), casa, visitante, golsCasa: 0, golsVisitante: 0, artilheirosCasa: [], artilheirosVisitante: [],
+                status: 'ao_vivo', eventos: [], relogio: { acumulado: 0, desde: Date.now() } };
+            estado.jogos.push(jogo);
+            fecharModalJogo();
+            salvarEstado();
+            abrirAoVivo(jogo.id);
+        }
+
+        function abrirAoVivo(id) {
+            aoVivoId = id;
+            golEmEdicao = null;
+            renderAoVivo();
+            document.getElementById('modal-aovivo').classList.remove('hidden');
+        }
+        function fecharAoVivo() {
+            document.getElementById('modal-aovivo').classList.add('hidden');
+            aoVivoId = null; golEmEdicao = null;
+        }
+
+        function pausarRetomar() {
+            const j = jogoAoVivo(); if (!j) return;
+            if (j.relogio.desde) { j.relogio.acumulado += Date.now() - j.relogio.desde; j.relogio.desde = null; }
+            else j.relogio.desde = Date.now();
+            salvarEstado(); renderAoVivo();
+        }
+
+        function marcarGol(lado) {
+            const j = jogoAoVivo(); if (!j) return;
+            const ev = { id: novoId(), lado, nome: '', min: Math.floor(tempoMs(j) / 60000) + 1 };
+            j.eventos.push(ev);
+            recomputarGols(j);
+            golEmEdicao = { eventoId: ev.id, novo: true };
+            salvarEstado(); renderAoVivo();
+        }
+
+        function editarAutor(eventoId) { golEmEdicao = { eventoId, novo: false }; renderAoVivo(); }
+
+        function definirAutor(nome) {
+            const j = jogoAoVivo(); if (!j || !golEmEdicao) return;
+            const ev = j.eventos.find(e => e.id === golEmEdicao.eventoId);
+            if (ev) ev.nome = String(nome || '').trim().replace(/\s+/g, ' ');
+            recomputarGols(j);
+            golEmEdicao = null;
+            salvarEstado(); renderAoVivo();
+            if (ev && ev.nome) toast(`Gol de ${ev.nome} registrado.`);
+        }
+        function confirmarAutorDigitado() { definirAutor(document.getElementById('av-nome').value); }
+        function pularAutor() { golEmEdicao = null; renderAoVivo(); }
+
+        function removerGol(eventoId) {
+            const j = jogoAoVivo(); if (!j) return;
+            j.eventos = j.eventos.filter(e => e.id !== eventoId);
+            recomputarGols(j);
+            if (golEmEdicao && golEmEdicao.eventoId === eventoId) golEmEdicao = null;
+            salvarEstado(); renderAoVivo();
+            toast('Gol removido.');
+        }
+
+        function encerrarPartida() {
+            const j = jogoAoVivo(); if (!j) return;
+            confirmar('Encerrar a partida?', `Placar final: ${j.casa} ${j.golsCasa} × ${j.golsVisitante} ${j.visitante}. O resultado entra na classificação.`, 'Encerrar partida', () => {
+                if (j.relogio.desde) { j.relogio.acumulado += Date.now() - j.relogio.desde; j.relogio.desde = null; }
+                j.status = 'encerrado';
+                fecharAoVivo();
+                salvarEstado();
+                toast('Partida encerrada. Classificação atualizada.');
+            });
+        }
+
+        function renderAoVivo() {
+            const j = jogoAoVivo();
+            const corpo = document.getElementById('aovivo-corpo');
+            if (!j) { fecharAoVivo(); return; }
+            const pausado = !j.relogio.desde;
+            const ladoBox = (lado, turma, gols) => `
+                <div class="bg-card border border-line rounded-lg p-4 flex flex-col items-center text-center gap-3">
+                    <p class="font-bold text-ink text-sm sm:text-base leading-tight w-full truncate">${esc(turma)}</p>
+                    <p class="text-6xl font-extrabold text-ink leading-none tabular-nums">${gols}</p>
+                    <button onclick="marcarGol('${lado}')" class="w-full min-h-[52px] bg-accent hover:bg-accent/90 active:scale-[.98] text-paper rounded-md font-bold text-base flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-futbol"></i> Gol
+                    </button>
+                </div>`;
+
+            let painel = '';
+            if (golEmEdicao) {
+                const ev = j.eventos.find(e => e.id === golEmEdicao.eventoId);
+                if (ev) {
+                    const turma = ev.lado === 'casa' ? j.casa : j.visitante;
+                    const sugestoes = nomesDaTurma(turma).slice(0, 12);
+                    painel = `<div class="mx-4 sm:mx-5 mb-4 bg-accent/10 border border-line rounded-lg p-4 space-y-3">
+                        <p class="text-sm font-semibold text-ink">${golEmEdicao.novo ? `Gol do ${esc(turma)} aos ${ev.min}' — quem marcou?` : `Autor do gol (${esc(turma)}, ${ev.min}')`}</p>
+                        <div class="flex gap-2">
+                            <input id="av-nome" type="text" list="av-sugestoes" value="${esc(ev.nome)}" placeholder="Nome do atleta" autocomplete="off"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault();confirmarAutorDigitado();}"
+                                class="flex-1 min-w-0 bg-paper border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink">
+                            <button onclick="confirmarAutorDigitado()" class="px-4 rounded-md bg-ink hover:bg-ink/85 text-paper font-semibold text-sm">Salvar</button>
+                        </div>
+                        <datalist id="av-sugestoes">${sugestoes.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+                        ${sugestoes.length ? `<div class="flex flex-wrap gap-2">${sugestoes.map(n => `<button data-n="${esc(n)}" onclick="definirAutor(this.dataset.n)" class="px-3 py-2 rounded-lg bg-card hover:bg-line border border-line text-sm text-ink">${esc(n)}</button>`).join('')}</div>` : ''}
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <button onclick="pularAutor()" class="text-sm px-3 py-2 rounded-lg text-ink hover:bg-card">${golEmEdicao.novo ? 'Preencher depois' : 'Cancelar'}</button>
+                            ${golEmEdicao.novo ? `<button onclick="removerGol('${esc(ev.id)}')" class="text-sm px-3 py-2 rounded-lg text-live hover:bg-live/10"><i class="fa-solid fa-rotate-left"></i> Desfazer gol</button>` : ''}
+                        </div>
+                    </div>`;
+                }
+            }
+
+            const linhas = j.eventos.slice().reverse().map(e => {
+                const turma = e.lado === 'casa' ? j.casa : j.visitante;
+                return `<li class="flex items-center gap-3 py-2.5">
+                    <span class="w-11 shrink-0 text-center font-mono text-sm text-mute">${e.min}'</span>
+                    <i class="fa-solid fa-futbol text-win text-sm"></i>
+                    <button onclick="editarAutor('${esc(e.id)}')" class="flex-1 min-w-0 text-left">
+                        <span class="block truncate text-sm font-semibold ${e.nome ? 'text-ink' : 'text-warn'}">${e.nome ? esc(e.nome) : 'Toque para informar o autor'}</span>
+                        <span class="block truncate text-xs text-mute">${esc(turma)}</span>
+                    </button>
+                    <button onclick="editarAutor('${esc(e.id)}')" class="w-9 h-9 rounded-lg text-mute hover:bg-card" title="Editar autor"><i class="fa-solid fa-pen text-xs"></i></button>
+                    <button onclick="removerGol('${esc(e.id)}')" class="w-9 h-9 rounded-lg text-live hover:bg-live/10" title="Remover gol"><i class="fa-solid fa-xmark"></i></button>
+                </li>`;
+            }).join('');
+
+            corpo.innerHTML = `
+                <div class="p-4 sm:p-5 flex items-center justify-between gap-3 border-b border-line">
+                    <span class="inline-flex items-center gap-2 text-xs font-bold uppercase ${pausado ? 'text-warn' : 'text-live'}">
+                        <span class="relative flex h-2.5 w-2.5">${pausado ? '' : '<span class="hidden absolute inline-flex h-full w-full rounded-full bg-live opacity-75"></span>'}<span class="relative inline-flex rounded-full h-2.5 w-2.5 ${pausado ? 'bg-gold' : 'bg-live'}"></span></span>
+                        ${pausado ? 'Pausada' : 'Ao vivo'}
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-mono text-2xl font-bold text-ink tabular-nums" data-relogio="${esc(j.id)}">${fmtTempo(tempoMs(j))}</span>
+                        <button onclick="pausarRetomar()" class="w-10 h-10 rounded-md bg-card hover:bg-line text-ink" title="${pausado ? 'Retomar' : 'Pausar (intervalo)'}"><i class="fa-solid ${pausado ? 'fa-play' : 'fa-pause'}"></i></button>
+                    </div>
+                    <button onclick="fecharAoVivo()" class="w-10 h-10 rounded-md text-mute hover:text-ink hover:bg-card" title="Minimizar (a partida continua)"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
+                <div class="p-4 sm:p-5 grid grid-cols-2 gap-3">
+                    ${ladoBox('casa', j.casa, j.golsCasa)}
+                    ${ladoBox('visitante', j.visitante, j.golsVisitante)}
+                </div>
+                ${painel}
+                <div class="px-4 sm:px-5 flex-1">
+                    <p class="text-xs font-semibold text-mute uppercase mb-1">Lances da partida</p>
+                    ${linhas ? `<ul class="divide-y divide-line">${linhas}</ul>` : '<p class="text-sm text-mute py-4">Nenhum gol ainda. Toque em <b class="text-ink">Gol</b> no time que marcar.</p>'}
+                </div>
+                <div class="p-4 sm:p-5 mt-4 border-t border-line sticky bottom-0 bg-paper">
+                    <button onclick="encerrarPartida()" class="w-full min-h-[48px] bg-ink hover:bg-ink/85 text-paper rounded-md font-bold text-sm"><i class="fa-solid fa-flag-checkered"></i> Encerrar partida</button>
+                </div>`;
+            if (golEmEdicao && window.innerWidth > 640) { const i = document.getElementById('av-nome'); if (i) i.focus(); }
+        }
+
+        setInterval(() => {
+            document.querySelectorAll('[data-relogio]').forEach(el => {
+                const j = estado.jogos.find(x => x.id === el.dataset.relogio);
+                if (j && j.status === 'ao_vivo') el.textContent = fmtTempo(tempoMs(j));
+            });
+        }, 1000);
+
+        function atualizarSelectsJogos() {
+            const opcoes = estado.turmas.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+            ['jogo-casa', 'jogo-visitante'].forEach(id => {
+                const sel = document.getElementById(id);
+                const atual = sel.value;
+                sel.innerHTML = opcoes;
+                if (estado.turmas.includes(atual)) sel.value = atual;
+            });
+        }
+
+        function abrirModalJogo(id) {
+            if (estado.turmas.length < 2) { toast('Cadastre pelo menos duas turmas antes de criar um jogo.', 'erro'); mudarAba('turmas'); return; }
+            atualizarSelectsJogos();
+            const jogo = id ? estado.jogos.find(j => j.id === id) : null;
+            if (jogo && jogo.status === 'ao_vivo') { abrirAoVivo(jogo.id); return; }
+            document.getElementById('bloco-aovivo').classList.toggle('hidden', !!jogo);
+            document.getElementById('modal-jogo-titulo').textContent = jogo ? 'Editar Partida' : 'Cadastrar Nova Partida';
+            document.getElementById('jogo-id').value = jogo ? jogo.id : '';
+            document.getElementById('jogo-casa').value = jogo ? jogo.casa : estado.turmas[0];
+            document.getElementById('jogo-visitante').value = jogo ? jogo.visitante : estado.turmas[1];
+            document.getElementById('jogo-gols-casa').value = jogo ? jogo.golsCasa : 0;
+            document.getElementById('jogo-gols-visitante').value = jogo ? jogo.golsVisitante : 0;
+            document.getElementById('modal-jogo').classList.remove('hidden');
+        }
+        function fecharModalJogo() { document.getElementById('modal-jogo').classList.add('hidden'); }
+
+        function salvarJogo(e) {
+            e.preventDefault();
+            const id = document.getElementById('jogo-id').value;
+            const casa = document.getElementById('jogo-casa').value;
+            const visitante = document.getElementById('jogo-visitante').value;
+            const golsCasa = Math.max(0, parseInt(document.getElementById('jogo-gols-casa').value, 10) || 0);
+            const golsVisitante = Math.max(0, parseInt(document.getElementById('jogo-gols-visitante').value, 10) || 0);
+            if (casa === visitante) { toast('Uma turma não pode jogar contra ela mesma.', 'erro'); return; }
+
+            let jogo;
+            if (id) {
+                jogo = estado.jogos.find(j => j.id === id);
+                // Se trocou os times, a súmula antiga não vale mais
+                if (jogo.casa !== casa) jogo.artilheirosCasa = [];
+                if (jogo.visitante !== visitante) jogo.artilheirosVisitante = [];
+                Object.assign(jogo, { casa, visitante, golsCasa, golsVisitante });
+                delete jogo.eventos;
+                jogo.artilheirosCasa = jogo.artilheirosCasa.slice(0, golsCasa);
+                jogo.artilheirosVisitante = jogo.artilheirosVisitante.slice(0, golsVisitante);
+            } else {
+                jogo = { id: novoId(), casa, visitante, golsCasa, golsVisitante, artilheirosCasa: [], artilheirosVisitante: [], status: 'encerrado' };
+                estado.jogos.push(jogo);
+            }
+            fecharModalJogo();
+            salvarEstado();
+            toast(id ? 'Partida atualizada.' : 'Partida cadastrada.');
+            if (golsCasa + golsVisitante > 0 && statusSumula(jogo).feitos < golsCasa + golsVisitante) abrirModalSumula(jogo.id);
+        }
+
+        function excluirJogo(id) {
+            const j = estado.jogos.find(x => x.id === id);
+            if (!j) return;
+            confirmar('Excluir partida?', `${j.casa} ${j.golsCasa} × ${j.golsVisitante} ${j.visitante} será removida, junto com os gols da súmula.`, 'Excluir', () => {
+                estado.jogos = estado.jogos.filter(x => x.id !== id);
+                salvarEstado();
+                toast('Partida excluída.');
+            });
+        }
+
+        // Súmula
+        let sumulaJogoId = null;
+        function nomesDaTurma(turma) {
+            const set = new Set();
+            estado.jogos.forEach(j => {
+                if (j.casa === turma) j.artilheirosCasa.forEach(n => n && set.add(n));
+                if (j.visitante === turma) j.artilheirosVisitante.forEach(n => n && set.add(n));
+            });
+            return [...set].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        }
+
+        function abrirModalSumula(id) {
+            const j = estado.jogos.find(x => x.id === id);
+            if (!j) return;
+            sumulaJogoId = id;
+            document.getElementById('sumula-subtitulo').textContent = `${j.casa} ${j.golsCasa} × ${j.golsVisitante} ${j.visitante}`;
+            const bloco = (lado, turma, qtd, lista) => {
+                if (!qtd) return `<div><p class="text-xs font-semibold text-mute uppercase mb-2">${esc(turma)}</p><p class="text-sm text-mute">Nenhum gol marcado.</p></div>`;
+                const dl = `dl-${lado}`;
+                const campos = Array.from({ length: qtd }, (_, i) => `
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 shrink-0 rounded-lg bg-card border border-line flex items-center justify-center text-xs text-mute">${i + 1}º</span>
+                        <input type="text" list="${dl}" data-lado="${lado}" value="${esc(lista[i] || '')}" placeholder="Nome do atleta" class="sumula-input w-full bg-card border border-line rounded-md px-3 py-2 text-base sm:text-sm text-ink focus:outline-none focus:border-ink">
+                    </div>`).join('');
+                return `<div>
+                    <p class="text-xs font-semibold text-mute uppercase mb-2"><i class="fa-solid fa-shield-halved text-accent"></i> ${esc(turma)} <span class="text-mute normal-case font-normal">· ${qtd} gol${qtd > 1 ? 's' : ''}</span></p>
+                    <div class="space-y-2">${campos}</div>
+                    <datalist id="${dl}">${nomesDaTurma(turma).map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+                </div>`;
+            };
+            document.getElementById('sumula-corpo').innerHTML =
+                bloco('casa', j.casa, j.golsCasa, j.artilheirosCasa) + bloco('visitante', j.visitante, j.golsVisitante, j.artilheirosVisitante) +
+                `<p class="text-xs text-mute">Dica: deixe em branco os gols contra ou de autoria desconhecida.</p>`;
+            document.getElementById('modal-sumula').classList.remove('hidden');
+            const primeiro = document.querySelector('#sumula-corpo .sumula-input');
+            if (primeiro && window.innerWidth > 640) primeiro.focus();
+        }
+        function fecharModalSumula() { document.getElementById('modal-sumula').classList.add('hidden'); sumulaJogoId = null; }
+
+        function salvarSumula() {
+            const j = estado.jogos.find(x => x.id === sumulaJogoId);
+            if (!j) { fecharModalSumula(); return; }
+            const normaliza = v => v.trim().replace(/\s+/g, ' ');
+            const ler = lado => [...document.querySelectorAll(`#sumula-corpo input[data-lado="${lado}"]`)].map(i => normaliza(i.value));
+            j.artilheirosCasa = ler('casa');
+            j.artilheirosVisitante = ler('visitante');
+            fecharModalSumula();
+            salvarEstado();
+            toast('Súmula salva.');
+        }
+
+        // Artilharia
+        function calcularArtilharia() {
+            const mapa = {};
+            const add = (nome, turma) => {
+                if (!nome) return;
+                const chave = nome.toLowerCase() + '|' + turma;
+                if (!mapa[chave]) mapa[chave] = { nome, turma, gols: 0 };
+                mapa[chave].gols++;
+            };
+            estado.jogos.forEach(j => {
+                j.artilheirosCasa.forEach(n => add(n, j.casa));
+                j.artilheirosVisitante.forEach(n => add(n, j.visitante));
+            });
+            return Object.values(mapa).sort((a, b) => b.gols - a.gols || a.nome.localeCompare(b.nome, 'pt-BR'));
+        }
+
+        function renderizarArtilharia() {
+            const todos = calcularArtilharia();
+            // posição com empates (1, 1, 3...)
+            let ultimaPos = 0, ultimosGols = null;
+            todos.forEach((a, i) => { if (a.gols !== ultimosGols) { ultimaPos = i + 1; ultimosGols = a.gols; } a.pos = ultimaPos; });
+
+            const podio = document.getElementById('podio-artilheiros');
+            if (!todos.length) {
+                podio.innerHTML = `<div class="sm:col-span-3 text-center py-10 border border-dashed border-line rounded-lg text-mute">
+                    <i class="fa-solid fa-shoe-prints text-3xl mb-3 block"></i>Nenhum gol registrado em súmula ainda.</div>`;
+            } else {
+                const estilos = [
+                    { cor: ' border-warn/40', icone: 'text-warn', medalha: 'Ouro' },
+                    { cor: ' border-line', icone: 'text-ink', medalha: 'Prata' },
+                    { cor: ' border-line', icone: 'text-bronze', medalha: 'Bronze' }
+                ];
+                podio.innerHTML = todos.slice(0, 3).map((a, i) => {
+                    const s = estilos[Math.min(a.pos, 3) - 1];
+                    return `<div class="${s.cor} border rounded-lg p-5 flex items-center gap-4">
+                        <div class="w-14 h-14 shrink-0 rounded-lg bg-paper flex items-center justify-center text-lg font-extrabold text-ink relative">
+                            ${esc(iniciais(a.nome))}
+                            <i class="fa-solid fa-medal ${s.icone} absolute -top-2 -right-2 text-lg"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[11px] uppercase font-bold ${s.icone}">${a.pos}º lugar · ${s.medalha}</p>
+                            <p class="font-bold text-ink truncate">${esc(a.nome)}</p>
+                            <p class="text-xs text-mute truncate">${esc(a.turma)}</p>
+                        </div>
+                        <div class="text-right"><p class="text-3xl font-extrabold text-ink leading-none">${a.gols}</p><p class="text-[11px] text-mute">gol${a.gols > 1 ? 's' : ''}</p></div>
+                    </div>`;
+                }).join('');
+            }
+
+            const termo = (document.getElementById('busca-artilheiro').value || '').trim().toLowerCase();
+            const filtrados = termo ? todos.filter(a => a.nome.toLowerCase().includes(termo) || a.turma.toLowerCase().includes(termo)) : todos;
+            const corpo = document.getElementById('tabela-artilharia-body');
+            if (!filtrados.length) {
+                corpo.innerHTML = `<tr><td colspan="4" class="py-10 text-center text-mute">${todos.length ? 'Nenhum atleta encontrado para essa busca.' : 'Os artilheiros aparecem aqui depois que as súmulas forem preenchidas.'}</td></tr>`;
+                return;
+            }
+            corpo.innerHTML = filtrados.map(a => `<tr class="hover:bg-card transition">
+                <td class="py-3 px-4 text-center text-mute font-semibold">${a.pos}º</td>
+                <td class="py-3 px-4 font-semibold text-ink">${esc(a.nome)}</td>
+                <td class="py-3 px-4 text-mute">${esc(a.turma)}</td>
+                <td class="py-3 px-4 text-center"><span class="inline-block min-w-[2.25rem] px-2 py-1 rounded-lg bg-accent/10 text-accent font-bold">${a.gols}</span></td>
+            </tr>`).join('');
+        }
+
+        // Turmas
+        function renderizarTurmas() {
+            const lista = document.getElementById('lista-turmas');
+            if (!estado.turmas.length) {
+                lista.innerHTML = `<div class="col-span-full text-center py-14 border border-dashed border-line rounded-lg text-mute">
+                    <i class="fa-solid fa-users-rectangle text-3xl mb-3 block"></i>Nenhuma turma cadastrada.</div>`;
+                return;
+            }
+            const classif = calcularClassificacao();
+            lista.innerHTML = estado.turmas.map((t, idx) => {
+                const pos = classif.findIndex(c => c.nome === t) + 1;
+                const s = classif[pos - 1];
+                return `<div class="bg-card border border-line rounded-lg p-4 flex flex-col gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 shrink-0 rounded-md bg-accent/10 border border-line text-accent flex items-center justify-center font-bold">${esc(iniciais(t))}</div>
+                        <div class="min-w-0 flex-1">
+                            <p class="font-bold text-ink truncate">${esc(t)}</p>
+                            <p class="text-xs text-mute">${pos}º colocado</p>
+                        </div>
+                        <button onclick="removerTurma(${idx})" class="w-9 h-9 rounded-lg text-mute hover:text-live hover:bg-live/10" title="Remover turma"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="bg-paper rounded-lg py-2"><p class="font-bold text-ink text-sm">${s.j}</p><p class="text-mute">Jogos</p></div>
+                        <div class="bg-paper rounded-lg py-2"><p class="font-bold text-ink text-sm">${s.v}-${s.e}-${s.d}</p><p class="text-mute">V-E-D</p></div>
+                        <div class="bg-paper rounded-lg py-2"><p class="font-bold text-ink text-sm">${s.gp}</p><p class="text-mute">Gols</p></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function adicionarTurmas1Ano() {
+            const novas = incluirTurmas1Ano();
+            salvarEstado();
+            toast(novas ? `${novas} turma${novas > 1 ? 's' : ''} do 1º ano adicionada${novas > 1 ? 's' : ''}.` : 'As turmas do 1º Ano A a E já estão cadastradas.');
+        }
+
+        function abrirModalTurma() {
+            document.getElementById('nova-turma-nome').value = '';
+            document.getElementById('modal-turma').classList.remove('hidden');
+            setTimeout(() => document.getElementById('nova-turma-nome').focus(), 50);
+        }
+        function fecharModalTurma() { document.getElementById('modal-turma').classList.add('hidden'); }
+
+        function salvarTurma(e) {
+            e.preventDefault();
+            const nome = document.getElementById('nova-turma-nome').value.trim().replace(/\s+/g, ' ');
+            if (!nome) return;
+            if (estado.turmas.some(t => t.toLowerCase() === nome.toLowerCase())) { toast('Essa turma já está cadastrada.', 'erro'); return; }
+            estado.turmas.push(nome);
+            fecharModalTurma();
+            salvarEstado();
+            toast(`${nome} adicionada.`);
+        }
+
+        function removerTurma(idx) {
+            const nome = estado.turmas[idx];
+            const jogosDela = estado.jogos.filter(j => j.casa === nome || j.visitante === nome).length;
+            const aviso = jogosDela ? `Os ${jogosDela} jogo(s) dessa turma também serão excluídos, e a classificação será recalculada.` : 'Ela ainda não tem jogos registrados.';
+            confirmar(`Remover ${nome}?`, aviso, 'Remover', () => {
+                estado.turmas.splice(idx, 1);
+                estado.jogos = estado.jogos.filter(j => j.casa !== nome && j.visitante !== nome);
+                salvarEstado();
+                toast(`${nome} removida.`);
+            });
+        }
+
+        // Ações do cabeçalho
+        function carregarExemplo() {
+            confirmar('Carregar dados de exemplo?', 'Todas as turmas e jogos atuais serão substituídos pelos dados de demonstração.', 'Carregar exemplo', () => {
+                estado = JSON.parse(JSON.stringify(EXEMPLO));
+                salvarEstado();
+                toast('Exemplo carregado.');
+            });
+        }
+        function zerarTudo() {
+            confirmar('Zerar o campeonato?', 'Todas as turmas, jogos e súmulas serão apagados. Essa ação não pode ser desfeita.', 'Zerar tudo', () => {
+                estado = { turmas: [], jogos: [], turmas1AnoV2: true };
+                salvarEstado();
+                toast('Campeonato zerado.');
+            });
+        }
+
+        // Fechar modais com ESC ou clique no fundo
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape') return;
+            if (!document.getElementById('modal-confirm').classList.contains('hidden')) { fecharConfirm(); return; }
+            if (aoVivoId && golEmEdicao) { pularAutor(); return; }
+            fecharAoVivo();
+            fecharPerfil();
+            fecharLogin();
+            fecharConfirm(); fecharModalJogo(); fecharModalSumula(); fecharModalTurma();
+        });
+        ['modal-jogo', 'modal-sumula', 'modal-turma', 'modal-confirm'].forEach(id => {
+            document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) document.getElementById(id).classList.add('hidden'); });
+        });
+
+        // ================= MODOS DE ACESSO =================
+        let modo = 'inicio'; // inicio | gerente | torcida
+        let abaTorcida = 'mural';
+        let muralTorcida = null, muralGerente = 'todos';
+        let torcedores = []; // documentos da coleção "torcida"
+        let ultimoPost = 0;
+
+        function mostrar(id) {
+            ['tela-inicio', 'app-torcida', 'app-gerente'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id));
+            window.scrollTo(0, 0);
+        }
+        function lembrarModo(m) { try { localStorage.setItem('interclasse_modo', m); } catch(e) {} }
+
+        function sairDoPainel() {
+            if (servidor === 'supabase' && sb) {
+                sb.auth.signOut().catch(() => {});
+                souDono = null; meuId = null;
+            }
+            voltarInicio();
+        }
+        function voltarInicio() { modo = 'inicio'; lembrarModo('inicio'); fecharAoVivo(); mostrar('tela-inicio'); renderizarInicio(); }
+
+        function entrarGerente() {
+            if (servidor === 'supabase' && !souDono) { abrirLogin(); return; }
+            if (souDono === false) { toast('Só o organizador do campeonato tem acesso ao painel.', 'erro'); return; }
+            modo = 'gerente'; lembrarModo('gerente'); mostrar('app-gerente'); atualizarTudo();
+        }
+
+        function meuPerfil() { return torcedores.find(t => t.id === meuId); }
+
+        function entrarTorcedor() {
+            modo = 'torcida'; lembrarModo('torcida');
+            mostrar('app-torcida');
+            const p = meuPerfil();
+            if (!muralTorcida) muralTorcida = (p && p.turma) || estado.turmas[0] || null;
+            mudarAbaTorcida(abaTorcida);
+            if (db && meuId && !p) abrirPerfilTorcedor();
+        }
+
+        function mudarAbaTorcida(aba) {
+            abaTorcida = aba;
+            document.querySelectorAll('.tview').forEach(el => el.classList.toggle('hidden', el.id !== 'tview-' + aba));
+            document.querySelectorAll('.ttab-btn').forEach(el => {
+                const ativo = el.id === 'ttab-' + aba;
+                el.className = 'ttab-btn flex-1 px-3 py-2.5 rounded-lg text-sm font-semibold transition ' + (ativo ? 'bg-ink text-paper' : 'text-mute hover:text-ink hover:bg-card');
+            });
+            renderizarTorcida();
+        }
+
+        // ----- Perfil do torcedor -----
+        async function abrirPerfilTorcedor() {
+            if (db && !meuId && servidor === 'supabase') {
+                try { await garantirSessaoTorcedor(); } catch (e) { toast('Não foi possível entrar na torcida agora. Tente de novo.', 'erro'); return; }
+            }
+            if (!db || !meuId) { toast(servidor === 'claude' ? 'Para entrar na torcida, abra o link com sua conta do Claude.' : 'O mural está sem conexão com o servidor agora.', 'erro'); return; }
+            const p = meuPerfil();
+            const sel = document.getElementById('perfil-sala');
+            sel.innerHTML = estado.turmas.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+            document.getElementById('perfil-nome').value = p ? p.nome : '';
+            if (p && estado.turmas.includes(p.turma)) sel.value = p.turma;
+            document.getElementById('modal-perfil').classList.remove('hidden');
+            setTimeout(() => document.getElementById('perfil-nome').focus(), 50);
+        }
+        function fecharPerfil() { document.getElementById('modal-perfil').classList.add('hidden'); }
+
+        async function salvarPerfilTorcedor(e) {
+            e.preventDefault();
+            const nome = document.getElementById('perfil-nome').value.trim().replace(/\s+/g, ' ').slice(0, 40);
+            const turma = document.getElementById('perfil-sala').value;
+            if (!nome || !turma) return;
+            const atual = meuPerfil();
+            const corpo = { nome, turma, posts: atual ? (atual.posts || []) : [], denuncias: atual ? (atual.denuncias || []) : [] };
+            try {
+                await db.doc('torcida/' + meuId).set(corpo);
+                fecharPerfil();
+                if (!atual) muralTorcida = turma;
+                toast(atual ? 'Perfil atualizado.' : `Bem-vindo à torcida, ${nome}!`);
+            } catch (err) {
+                fecharPerfil();
+                podeEscrever = false;
+                toast('Seu acesso permite só ler o mural. Peça ao organizador acesso para postar.', 'erro');
+                renderizarTorcida();
+            }
+        }
+
+        // ----- Posts -----
+        function todosPosts() {
+            const lista = [];
+            torcedores.forEach(t => (t.posts || []).forEach(p => {
+                if (!p || typeof p.texto !== 'string') return;
+                lista.push({ ...p, autorId: t.id, autorNome: t.nome || 'Torcedor', autorSala: t.turma || '' });
+            }));
+            return lista.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        }
+        function contarDenuncias() {
+            const mapa = {};
+            torcedores.forEach(t => (t.denuncias || []).forEach(d => {
+                if (!d || !d.postId) return;
+                const k = d.autorId + '|' + d.postId;
+                mapa[k] = (mapa[k] || 0) + 1;
+            }));
+            return mapa;
+        }
+        function tempoRelativo(ts) {
+            const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+            if (s < 45) return 'agora';
+            if (s < 3600) return `há ${Math.max(1, Math.round(s / 60))} min`;
+            if (s < 86400) return `há ${Math.round(s / 3600)} h`;
+            return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        async function publicarPost() {
+            const p = meuPerfil();
+            if (!p) { abrirPerfilTorcedor(); return; }
+            const campo = document.getElementById('torc-texto');
+            const texto = campo.value.trim().replace(/\n{3,}/g, '\n\n').slice(0, 280);
+            if (!texto) return;
+            if (Date.now() - ultimoPost < 15000) { toast('Calma! Espere alguns segundos para postar de novo.', 'erro'); return; }
+            const post = { id: novoId(), mural: muralTorcida, texto, ts: Date.now() };
+            const posts = [post, ...(p.posts || [])].slice(0, 150);
+            const btn = document.getElementById('torc-btn-postar');
+            btn.disabled = true;
+            try {
+                await db.doc('torcida/' + meuId).update({ posts });
+                ultimoPost = Date.now();
+                campo.value = '';
+                toast('Post publicado no mural ' + muralTorcida + '!');
+            } catch (err) {
+                toast(err && err.code === 'invalid_argument' ? 'Seu acesso permite só ler o mural. Peça ao organizador acesso para postar.' : 'Não foi possível publicar. Tente de novo.', 'erro');
+                if (err && err.code === 'invalid_argument') { podeEscrever = false; renderizarTorcida(); }
+            } finally { btn.disabled = false; }
+        }
+
+        async function apagarPost(autorId, postId) {
+            const t = torcedores.find(x => x.id === autorId);
+            if (!t) return;
+            const souAutor = autorId === meuId;
+            const executar = async () => {
+                try {
+                    await db.doc('torcida/' + autorId).update({ posts: (t.posts || []).filter(p => p.id !== postId) });
+                    // limpa denúncias desse post do próprio documento (se for o dono do painel, só some da lista ao apagar o post)
+                    toast('Post apagado.');
+                } catch (err) { toast('Não foi possível apagar o post.', 'erro'); }
+            };
+            confirmar(souAutor ? 'Apagar seu post?' : 'Apagar este post?', souAutor ? 'Ele some do mural para todo mundo.' : `Post de ${t.nome || 'torcedor'} será removido do mural.`, 'Apagar', executar);
+        }
+
+        async function denunciarPost(autorId, postId) {
+            const p = meuPerfil();
+            if (!p) { abrirPerfilTorcedor(); return; }
+            const den = p.denuncias || [];
+            if (den.some(d => d.postId === postId && d.autorId === autorId)) { toast('Você já denunciou este post.'); return; }
+            confirmar('Denunciar este post?', 'O organizador do campeonato vai analisar e pode apagá-lo.', 'Denunciar', async () => {
+                try {
+                    await db.doc('torcida/' + meuId).update({ denuncias: [...den, { autorId, postId, ts: Date.now() }].slice(-100) });
+                    toast('Denúncia enviada ao organizador.');
+                } catch (err) { toast('Não foi possível enviar a denúncia.', 'erro'); }
+            });
+        }
+
+        function cartaoPost(p, opcoes) {
+            const corSala = p.autorSala === p.mural ? 'text-win bg-accent/10 border-line' : 'text-warn bg-warn/10 border-warn/40';
+            const visitante = p.autorSala && p.autorSala !== p.mural;
+            const podeApagar = opcoes.moderar || p.autorId === meuId;
+            const nDen = opcoes.denuncias ? opcoes.denuncias[p.autorId + '|' + p.id] || 0 : 0;
+            return `<article class="bg-card border ${nDen ? 'border-live/40' : 'border-line'} rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 shrink-0 rounded-md bg-paper border border-line flex items-center justify-center text-sm font-bold text-ink">${esc(iniciais(p.autorNome))}</div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span class="font-semibold text-ink truncate">${esc(p.autorNome)}</span>
+                            <span class="text-[11px] px-2 py-0.5 rounded-full border ${corSala}">${visitante ? 'visitante · ' : ''}${esc(p.autorSala)}</span>
+                            <span class="text-xs text-mute">${tempoRelativo(p.ts || 0)}</span>
+                        </div>
+                        ${opcoes.mostrarMural ? `<p class="text-xs text-mute mt-0.5">no mural do ${esc(p.mural)}</p>` : ''}
+                        <p class="text-[15px] text-ink mt-2 whitespace-pre-wrap break-words">${esc(p.texto)}</p>
+                        ${nDen ? `<p class="text-xs text-live mt-2"><i class="fa-solid fa-flag"></i> ${nDen} denúncia${nDen > 1 ? 's' : ''}</p>` : ''}
+                    </div>
+                </div>
+                <div class="flex justify-end gap-1 mt-2">
+                    ${!opcoes.moderar && p.autorId !== meuId && opcoes.podeDenunciar ? `<button onclick="denunciarPost('${esc(p.autorId)}','${esc(p.id)}')" class="text-xs px-3 py-2 rounded-lg text-mute hover:text-live hover:bg-live/10"><i class="fa-regular fa-flag"></i> Denunciar</button>` : ''}
+                    ${podeApagar && opcoes.podeApagar ? `<button onclick="apagarPost('${esc(p.autorId)}','${esc(p.id)}')" class="text-xs px-3 py-2 rounded-lg text-live hover:bg-live/10"><i class="fa-solid fa-trash"></i> Apagar</button>` : ''}
+                </div>
+            </article>`;
+        }
+
+        function chipsMural(alvo, atual, acao, incluirTodos, contagem) {
+            const itens = (incluirTodos ? ['todos'] : []).concat(estado.turmas);
+            document.getElementById(alvo).innerHTML = itens.map(t => {
+                const ativo = t === atual;
+                const n = t === 'todos' ? contagem.total : (contagem[t] || 0);
+                return `<button data-m="${esc(t)}" onclick="${acao}(this.dataset.m)" class="shrink-0 px-3.5 py-2 rounded-full text-sm font-semibold border transition ${ativo ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-line hover:border-ink'}">${t === 'todos' ? 'Todos' : esc(t)} <span class="${ativo ? 'text-paper/60' : 'text-mute'} font-normal">${n}</span></button>`;
+            }).join('');
+        }
+        function contagemPorMural(posts) {
+            const c = { total: posts.length };
+            posts.forEach(p => c[p.mural] = (c[p.mural] || 0) + 1);
+            return c;
+        }
+        function escolherMuralTorcida(m) { muralTorcida = m; renderizarTorcida(); }
+        function escolherMuralGerente(m) { muralGerente = m; renderizarMuralGerente(); }
+
+        // ----- Render torcida -----
+        function renderizarTorcida() {
+            if (modo !== 'torcida') return;
+            const p = meuPerfil();
+            document.getElementById('torc-nome-header').textContent = p ? p.nome : 'Torcida';
+            document.getElementById('torc-sala-header').textContent = p ? 'Torcedor do ' + p.turma : (db ? 'Toque no ícone ao lado para se identificar' : 'Modo somente leitura');
+            if (muralTorcida && !estado.turmas.includes(muralTorcida)) muralTorcida = estado.turmas[0] || null;
+            if (!muralTorcida) muralTorcida = estado.turmas[0] || null;
+
+            if (abaTorcida === 'mural') {
+                const posts = todosPosts();
+                chipsMural('torc-chips-mural', muralTorcida, 'escolherMuralTorcida', false, contagemPorMural(posts));
+                const form = document.getElementById('torc-form-post');
+                if (!db) {
+                    form.innerHTML = `<div class="bg-card border border-line rounded-lg p-4 text-sm text-ink">O mural está sem conexão com o servidor agora. Tente recarregar a página em instantes.</div>`;
+                } else if (!p) {
+                    form.innerHTML = `<button onclick="abrirPerfilTorcedor()" class="w-full bg-accent hover:bg-accent/90 text-paper rounded-lg p-4 font-semibold"><i class="fa-solid fa-user-plus"></i> Diga seu nome e sala para postar</button>`;
+                } else if (podeEscrever === false) {
+                    form.innerHTML = `<div class="bg-card border border-line rounded-lg p-4 text-sm text-ink"><i class="fa-solid fa-eye text-mute"></i> Seu acesso permite ler o mural. Para postar, peça ao organizador acesso de participante.</div>`;
+                } else if (muralTorcida) {
+                    const eMinha = muralTorcida === p.turma;
+                    form.innerHTML = `<div class="bg-card border border-line rounded-lg p-4 space-y-3">
+                        <p class="text-sm text-ink">${eMinha ? 'Postando no mural da <b class="text-win">sua sala</b>' : `Postando no mural do <b class="text-warn">${esc(muralTorcida)}</b> (adversário)`}</p>
+                        <textarea id="torc-texto" maxlength="280" rows="3" placeholder="${eMinha ? 'Manda a moral da sua turma…' : 'Manda aquela zoeira (sem ofender ninguém)…'}" oninput="document.getElementById('torc-cont').textContent=this.value.length+'/280'" class="w-full bg-paper border border-line rounded-md px-3 py-3 text-base text-ink resize-none focus:outline-none focus:border-ink"></textarea>
+                        <div class="flex items-center justify-between">
+                            <span id="torc-cont" class="text-xs text-mute">0/280</span>
+                            <button id="torc-btn-postar" onclick="publicarPost()" class="bg-accent hover:bg-accent/90 disabled:opacity-50 text-paper px-5 py-2.5 rounded-md text-sm font-semibold"><i class="fa-solid fa-paper-plane"></i> Postar</button>
+                        </div>
+                    </div>`;
+                }
+                const lista = posts.filter(x => x.mural === muralTorcida);
+                document.getElementById('torc-lista-posts').innerHTML = lista.length
+                    ? lista.map(x => cartaoPost(x, { podeDenunciar: !!p && podeEscrever !== false, podeApagar: podeEscrever !== false })).join('')
+                    : `<div class="text-center py-12 border border-dashed border-line rounded-lg text-mute"><i class="fa-regular fa-comments text-3xl mb-3 block"></i>${muralTorcida ? 'Ninguém postou no mural do ' + esc(muralTorcida) + ' ainda. Seja o primeiro!' : 'Nenhuma sala cadastrada.'}</div>`;
+            } else if (abaTorcida === 'jogos') {
+                const jogos = estado.jogos.slice().reverse().sort((a, b) => (b.status === 'ao_vivo') - (a.status === 'ao_vivo'));
+                document.getElementById('torc-jogos').innerHTML = jogos.length ? jogos.map(cartaoJogoLeitura).join('')
+                    : `<div class="text-center py-12 border border-dashed border-line rounded-lg text-mute"><i class="fa-solid fa-futbol text-3xl mb-3 block"></i>Nenhum jogo ainda.</div>`;
+            } else {
+                const linhas = calcularClassificacao();
+                document.getElementById('torc-tabela').innerHTML = `<table class="w-full text-sm"><thead><tr class="bg-paper text-mute uppercase text-[11px] font-bold"><th class="py-3 px-3 text-center w-12">Pos</th><th class="py-3 px-2 text-left">Turma</th><th class="py-3 px-2 text-center">J</th><th class="py-3 px-2 text-center">V</th><th class="py-3 px-2 text-center">E</th><th class="py-3 px-2 text-center">D</th></tr></thead><tbody class="divide-y divide-line">${
+                    linhas.map((t, i) => `<tr class="${meuPerfil() && meuPerfil().turma === t.nome ? 'bg-accent/10' : ''}"><td class="py-3 px-3 text-center font-bold text-ink">${i + 1}º</td><td class="py-3 px-2 font-semibold text-ink">${esc(t.nome)}</td><td class="py-3 px-2 text-center">${t.j}</td><td class="py-3 px-2 text-center text-win font-semibold">${t.v}</td><td class="py-3 px-2 text-center">${t.e}</td><td class="py-3 px-2 text-center text-live font-semibold">${t.d}</td></tr>`).join('')
+                }</tbody></table>`;
+                const art = calcularArtilharia().slice(0, 10);
+                document.getElementById('torc-artilharia').innerHTML = art.length ? `<ul class="divide-y divide-line">${art.map((a, i) => `<li class="flex items-center gap-3 px-4 py-3"><span class="w-6 text-mute font-semibold">${i + 1}º</span><span class="flex-1 min-w-0"><span class="block font-semibold text-ink truncate">${esc(a.nome)}</span><span class="block text-xs text-mute truncate">${esc(a.turma)}</span></span><span class="px-2 py-1 rounded-lg bg-accent/10 text-accent font-bold">${a.gols}</span></li>`).join('')}</ul>`
+                    : '<p class="p-4 text-sm text-mute">Nenhum gol registrado ainda.</p>';
+            }
+        }
+
+        function cartaoJogoLeitura(j) {
+            const vivo = j.status === 'ao_vivo';
+            const pausado = vivo && !j.relogio.desde;
+            const eventos = vivo ? j.eventos.slice().reverse().slice(0, 6) : [];
+            return `<div class="bg-card border ${vivo ? 'border-live/40' : 'border-line'} rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3 text-xs">
+                    ${vivo ? `<span class="font-bold uppercase ${pausado ? 'text-warn' : 'text-live'}"><i class="fa-solid fa-circle text-[8px] ${pausado ? '' : 'animate-pulse'}"></i> ${pausado ? 'Intervalo' : 'Ao vivo'}</span><span class="font-mono text-ink" data-relogio="${esc(j.id)}">${fmtTempo(tempoMs(j))}</span>` : '<span class="text-mute uppercase font-semibold">Encerrado</span><span></span>'}
+                </div>
+                <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+                    <p class="font-bold text-ink truncate text-right">${esc(j.casa)}</p>
+                    <div class="flex items-center gap-2 bg-paper rounded-md px-3 py-2 border border-line">
+                        <span class="text-2xl font-extrabold text-ink">${j.golsCasa}</span><span class="text-mute font-bold">×</span><span class="text-2xl font-extrabold text-ink">${j.golsVisitante}</span>
+                    </div>
+                    <p class="font-bold text-ink truncate">${esc(j.visitante)}</p>
+                </div>
+                ${eventos.length ? `<ul class="mt-3 pt-3 border-t border-line space-y-1 text-xs text-ink">${eventos.map(e => `<li><span class="font-mono text-mute">${e.min}'</span> <i class="fa-solid fa-futbol text-win"></i> ${e.nome ? esc(e.nome) : 'Gol'} <span class="text-mute">· ${esc(e.lado === 'casa' ? j.casa : j.visitante)}</span></li>`).join('')}</ul>` : ''}
+            </div>`;
+        }
+
+        // ----- Tela inicial -----
+        function renderizarInicio() {
+            const btn = document.getElementById('btn-entrar-gerente');
+            const bloqueado = souDono === false && servidor !== 'supabase';
+            btn.disabled = bloqueado;
+            document.getElementById('gerente-desc').textContent = bloqueado ? 'Acesso exclusivo do organizador do campeonato.' : 'Placares ao vivo, súmulas, turmas e moderação do mural.';
+            document.getElementById('gerente-cta').innerHTML = bloqueado ? '<i class="fa-solid fa-lock"></i> Restrito' : 'Abrir painel <i class="fa-solid fa-arrow-right ml-1"></i>';
+            const vivos = estado.jogos.filter(j => j.status === 'ao_vivo');
+            document.getElementById('inicio-aovivo').innerHTML = vivos.length ? `<p class="text-xs font-bold uppercase text-live mb-3"><i class="fa-solid fa-circle text-[8px] animate-pulse"></i> Agora</p><div class="space-y-3">${vivos.map(cartaoJogoLeitura).join('')}</div>` : '';
+        }
+
+        // ----- Moderação (gerente) -----
+        function renderizarMuralGerente() {
+            const posts = todosPosts();
+            const den = contarDenuncias();
+            const nDen = Object.keys(den).filter(k => posts.some(p => p.autorId + '|' + p.id === k)).length;
+            const badge = document.getElementById('badge-denuncias');
+            badge.textContent = nDen; badge.classList.toggle('hidden', !nDen);
+            if (!db) {
+                document.getElementById('ger-denuncias').innerHTML = `<div class="bg-warn/10 border border-warn/40 rounded-lg p-4 text-sm text-warn">O mural só funciona com a página conectada ao servidor. Recarregue a página ou confira a configuração.</div>`;
+                document.getElementById('ger-chips-mural').innerHTML = '';
+                document.getElementById('ger-lista-posts').innerHTML = '';
+                return;
+            }
+            const denunciados = posts.filter(p => den[p.autorId + '|' + p.id]).sort((a, b) => den[b.autorId + '|' + b.id] - den[a.autorId + '|' + a.id]);
+            document.getElementById('ger-denuncias').innerHTML = denunciados.length ? `<div class="space-y-3"><p class="text-sm font-semibold text-live"><i class="fa-solid fa-flag"></i> Denunciados (${denunciados.length})</p>${denunciados.map(p => cartaoPost(p, { moderar: true, podeApagar: true, mostrarMural: true, denuncias: den })).join('')}</div>` : '';
+            if (muralGerente !== 'todos' && !estado.turmas.includes(muralGerente)) muralGerente = 'todos';
+            chipsMural('ger-chips-mural', muralGerente, 'escolherMuralGerente', true, contagemPorMural(posts));
+            const lista = muralGerente === 'todos' ? posts : posts.filter(p => p.mural === muralGerente);
+            document.getElementById('ger-lista-posts').innerHTML = lista.length ? lista.map(p => cartaoPost(p, { moderar: true, podeApagar: true, mostrarMural: true, denuncias: den })).join('')
+                : `<div class="text-center py-12 border border-dashed border-line rounded-lg text-mute"><i class="fa-regular fa-comments text-3xl mb-3 block"></i>Nenhum post ${muralGerente === 'todos' ? 'ainda' : 'no mural do ' + esc(muralGerente)}.</div>`;
+        }
+
+        // ----- Supabase (versão publicada como site) -----
+        let servidor = null; // 'claude' | 'supabase' | null
+        let sb = null;
+
+        function erroSb(e) {
+            const code = e && (e.code === '42501' || /row-level security|permission/i.test(e.message || '')) ? 'invalid_argument' : 'unavailable';
+            return { code, message: (e && e.message) || 'erro' };
+        }
+
+        async function atualizarIdentidadeSb() {
+            const { data } = await sb.auth.getSession();
+            const sessao = data && data.session;
+            meuId = sessao ? sessao.user.id : null;
+            souDono = null;
+            if (sessao && !sessao.user.is_anonymous) {
+                const { data: adm, error } = await sb.rpc('is_admin');
+                souDono = !error && adm === true;
+            }
+            podeEscrever = true;
+        }
+
+        async function garantirSessaoTorcedor() {
+            const { data } = await sb.auth.getSession();
+            if (data && data.session) { meuId = data.session.user.id; return; }
+            const { data: anon, error } = await sb.auth.signInAnonymously();
+            if (error) throw error;
+            meuId = anon.user.id;
+        }
+
+        async function conectarSupabase() {
+            const cfg = window.SUPABASE_CONFIG;
+            sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+            await atualizarIdentidadeSb();
+
+            const snapDoc = (id, dados) => ({ id, exists: !!dados, data: () => dados ? JSON.parse(JSON.stringify(dados)) : undefined, metadata: { fromCache: false, hasPendingWrites: false } });
+
+            function refCamp() {
+                return {
+                    async set(obj) {
+                        const { error } = await sb.from('campeonato').upsert({ id: 'estado', dados: obj, atualizado_em: new Date().toISOString() });
+                        if (error) throw erroSb(error);
+                    },
+                    onSnapshot(next, onErr) {
+                        sb.from('campeonato').select('dados').eq('id', 'estado').maybeSingle().then(({ data, error }) => {
+                            if (error) { onErr && onErr(erroSb(error)); return; }
+                            next(snapDoc('estado', data && data.dados));
+                        });
+                        const canal = sb.channel('camp').on('postgres_changes', { event: '*', schema: 'public', table: 'campeonato' }, payload => {
+                            if (payload.new && payload.new.id === 'estado') next(snapDoc('estado', payload.new.dados));
+                        }).subscribe();
+                        return () => sb.removeChannel(canal);
+                    }
+                };
+            }
+            function refTorcedor(id) {
+                return {
+                    async set(obj) {
+                        const { error } = await sb.from('torcedores').upsert({ id, nome: obj.nome, turma: obj.turma, posts: obj.posts || [], denuncias: obj.denuncias || [], atualizado_em: new Date().toISOString() });
+                        if (error) throw erroSb(error);
+                    },
+                    async update(parcial) {
+                        const { data, error } = await sb.from('torcedores').update({ ...parcial, atualizado_em: new Date().toISOString() }).eq('id', id).select('id');
+                        if (error) throw erroSb(error);
+                        if (!data || !data.length) throw { code: 'invalid_argument', message: 'sem permissão' };
+                    }
+                };
+            }
+            function colTorcida() {
+                return {
+                    onSnapshot(next, onErr) {
+                        let t = null;
+                        const carregar = async () => {
+                            const { data, error } = await sb.from('torcedores').select('id,nome,turma,posts,denuncias');
+                            if (error) { onErr && onErr(erroSb(error)); return; }
+                            const docs = (data || []).map(row => snapDoc(row.id, row));
+                            next({ docs, size: docs.length, empty: !docs.length, metadata: { fromCache: false, hasPendingWrites: false }, docChanges: () => [] });
+                        };
+                        carregar();
+                        const canal = sb.channel('torcida').on('postgres_changes', { event: '*', schema: 'public', table: 'torcedores' }, () => {
+                            clearTimeout(t); t = setTimeout(carregar, 250);
+                        }).subscribe();
+                        return () => sb.removeChannel(canal);
+                    }
+                };
+            }
+            return {
+                doc(path) {
+                    if (path === 'camp/estado') return refCamp();
+                    if (path.startsWith('torcida/')) return refTorcedor(path.slice(8));
+                    throw new TypeError('caminho desconhecido: ' + path);
+                },
+                collection(path) {
+                    if (path === 'torcida') return colTorcida();
+                    throw new TypeError('coleção desconhecida: ' + path);
+                }
+            };
+        }
+
+        // Login do gerenciador (Supabase)
+        function abrirLogin() {
+            document.getElementById('login-erro').textContent = '';
+            document.getElementById('modal-login').classList.remove('hidden');
+            setTimeout(() => document.getElementById('login-email').focus(), 50);
+        }
+        function fecharLogin() { document.getElementById('modal-login').classList.add('hidden'); }
+        async function fazerLogin(e) {
+            e.preventDefault();
+            const erro = document.getElementById('login-erro');
+            const btn = document.getElementById('login-btn');
+            if (!sb) { erro.textContent = 'O site está sem conexão com o servidor.'; return; }
+            btn.disabled = true; erro.textContent = '';
+            try {
+                const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-senha').value });
+                if (error) { erro.textContent = 'E-mail ou senha incorretos.'; return; }
+                await atualizarIdentidadeSb();
+                if (!souDono) { erro.textContent = 'Esta conta não é a do gerenciador do campeonato.'; await sb.auth.signOut(); meuId = null; souDono = null; return; }
+                document.getElementById('login-senha').value = '';
+                fecharLogin();
+                entrarGerente();
+            } finally { btn.disabled = false; }
+        }
+
+        // ----- Conexão com o servidor -----
+        async function iniciarServidor() {
+            let resolvido = false;
+            const aviso = document.getElementById('aviso-local');
+            const timer = setTimeout(() => {
+                if (resolvido) return;
+                aviso.textContent = 'Sem conexão com o servidor: o placar fica salvo só neste aparelho e o mural está indisponível.';
+                aviso.classList.remove('hidden');
+            }, 10000);
+            try {
+                if (supabaseConfigurado()) { servidor = 'supabase'; db = await conectarSupabase(); }
+                else {
+                if (!window.claude || !window.claude.use) throw new Error('sem runtime');
+                servidor = 'claude';
+                const [d, u] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+                db = d; usuario = u;
+                if (usuario) {
+                    try { souDono = await usuario.isOwner(); } catch(e) { souDono = null; }
+                    try { meuId = await usuario.id(); } catch(e) { meuId = null; }
+                    try { const c = await usuario.can('data.write'); podeEscrever = c === null ? null : !!c; } catch(e) {}
+                }
+                }
+            } catch (e) { db = null; }
+            if (!db) {
+                resolvido = true; clearTimeout(timer);
+                aviso.textContent = 'Sem conexão com o servidor: o placar fica salvo só neste aparelho e o mural está indisponível.';
+                aviso.classList.remove('hidden');
+                atualizarTudo();
+                return;
+            }
+
+            // Campeonato (um documento compartilhado)
+            let primeira = true;
+            db.doc('camp/estado').onSnapshot(snap => {
+                resolvido = true; clearTimeout(timer); aviso.classList.add('hidden');
+                if (snap.metadata.hasPendingWrites) return;
+                if (snap.exists) {
+                    const dados = normalizarEstado(JSON.parse(JSON.stringify(snap.data())));
+                    if (dados && !(gravando || pendente)) {
+                        estado = dados;
+                        try { localStorage.setItem('interclasse_state', JSON.stringify(estado)); } catch(e) {}
+                    }
+                } else if (primeira && souDono && !snap.metadata.fromCache) {
+                    gravarCampeonato(); // primeira vez: envia os dados deste aparelho
+                }
+                if (!snap.metadata.fromCache) primeira = false;
+                if (aoVivoId) { if (jogoAoVivo() && jogoAoVivo().status === 'ao_vivo') renderAoVivo(); else fecharAoVivo(); }
+                atualizarTudo();
+            }, err => {
+                resolvido = true; clearTimeout(timer);
+                aviso.textContent = 'A conexão com o servidor caiu. Recarregue a página para ver os dados mais recentes.';
+                aviso.classList.remove('hidden');
+            });
+
+            // Torcida (um documento por torcedor)
+            db.collection('torcida').onSnapshot(snap => {
+                torcedores = snap.docs.filter(d => d.exists).map(d => {
+                    const v = d.data() || {};
+                    return { id: d.id, nome: String(v.nome || '').slice(0, 40), turma: String(v.turma || ''), posts: Array.isArray(v.posts) ? v.posts : [], denuncias: Array.isArray(v.denuncias) ? v.denuncias : [] };
+                });
+                renderizarTorcida();
+                renderizarMuralGerente();
+            }, () => {});
+
+            atualizarTudo();
+            // Se entrou como gerente e não é o dono, volta para o início
+            if (modo === 'gerente' && (souDono === false || (servidor === 'supabase' && !souDono))) voltarInicio();
+            if (servidor === 'supabase' && souDono) { let m = ''; try { m = localStorage.getItem('interclasse_modo'); } catch(e) {} if (m === 'gerente') entrarGerente(); }
+            if (modo === 'torcida' && meuId && !meuPerfil()) setTimeout(() => { if (modo === 'torcida' && !meuPerfil()) abrirPerfilTorcedor(); }, 1500);
+        }
+
+        // Tempo relativo dos posts se atualiza a cada minuto
+        setInterval(() => { if (modo === 'torcida' && abaTorcida === 'mural') renderizarTorcida(); }, 60000);
+
+        // Retoma o último modo usado neste aparelho
+        (function () {
+            let m = 'inicio';
+            try { m = localStorage.getItem('interclasse_modo') || 'inicio'; } catch(e) {}
+            atualizarTudo();
+            if (m === 'gerente' && !supabaseConfigurado()) entrarGerente();
+            else if (m === 'gerente') mostrar('tela-inicio');
+            else if (m === 'torcida') entrarTorcedor();
+            else mostrar('tela-inicio');
+        })();
+        iniciarServidor();
+    </script>
+</body>
+</html>
