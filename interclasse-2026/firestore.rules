@@ -9,6 +9,9 @@ service cloud.firestore {
       return request.auth != null
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+    function logado() { return request.auth != null; }
+    function perfil() { return /databases/$(database)/documents/torcida/$(request.auth.uid); }
+    function texto(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
 
     // Campeonato: todo mundo lê; só o gerenciador grava
     match /camp/{id} {
@@ -18,24 +21,92 @@ service cloud.firestore {
 
     // Admins: cada um só vê a própria linha; ninguém grava pelo site
     match /admins/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if logado() && request.auth.uid == uid;
       allow write: if false;
     }
 
-    // Torcida: mural público; cada torcedor cria/edita só o próprio registro;
-    // o gerenciador pode editar (apagar posts) e excluir qualquer um
+    // Perfil do torcedor (nome, sala, denúncias e carimbos anti-spam).
+    // Só o próprio torcedor e o gerenciador leem (as denúncias são sigilosas).
     match /torcida/{uid} {
       function valido(d) {
-        return d.keys().hasOnly(['nome', 'turma', 'posts', 'denuncias'])
-          && d.nome is string && d.nome.size() >= 1 && d.nome.size() <= 40
-          && d.turma is string && d.turma.size() >= 1 && d.turma.size() <= 60
-          && d.posts is list && d.posts.size() <= 150
-          && d.denuncias is list && d.denuncias.size() <= 100;
+        return d.keys().hasOnly(['nome', 'turma', 'posts', 'denuncias', 'ultimoPost', 'qtdPosts', 'ultimoLance'])
+          && texto(d.nome, 1, 40) && texto(d.turma, 1, 60)
+          && d.get('posts', []) is list && d.get('posts', []).size() <= 150
+          && d.get('denuncias', []) is list && d.get('denuncias', []).size() <= 100
+          && d.get('qtdPosts', 0) is int && d.get('qtdPosts', 0) <= 300;
+      }
+      function antes(k) { return resource == null ? null : resource.data.get(k, null); }
+      // ultimoPost/ultimoLance só podem ser gravados com a hora do servidor,
+      // e o contador de posts só sobe de 1 em 1 junto com um post novo.
+      function carimbosOk() {
+        let d = request.resource.data;
+        let qAntes = resource == null ? 0 : resource.data.get('qtdPosts', 0);
+        return (d.get('ultimoPost', null) == antes('ultimoPost') || d.get('ultimoPost', null) == request.time)
+          && (d.get('ultimoLance', null) == antes('ultimoLance') || d.get('ultimoLance', null) == request.time)
+          && (d.get('qtdPosts', 0) == qAntes || (d.get('qtdPosts', 0) == qAntes + 1 && d.get('ultimoPost', null) == request.time));
+      }
+      allow read: if logado() && (request.auth.uid == uid || isAdmin());
+      allow create: if logado() && request.auth.uid == uid && valido(request.resource.data) && carimbosOk();
+      allow update: if logado() && ((request.auth.uid == uid && valido(request.resource.data) && carimbosOk())
+                                   || (isAdmin() && valido(request.resource.data)));
+      allow delete: if isAdmin();
+    }
+
+    // Posts do mural: um documento por post
+    match /posts/{pid} {
+      function postValido(d) {
+        return texto(d.texto, 1, 280) && texto(d.autorNome, 1, 40)
+          && texto(d.autorSala, 1, 60) && texto(d.mural, 1, 60);
       }
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == uid && valido(request.resource.data);
-      allow update: if request.auth != null && (request.auth.uid == uid || isAdmin()) && valido(request.resource.data);
-      allow delete: if isAdmin();
+      // Torcedor: post normal, com o próprio nome e sala, no máximo 1 a cada 10 segundos
+      // (o post vai num lote junto com a atualização de torcida/{uid}.ultimoPost)
+      allow create: if (isAdmin() && postValido(request.resource.data))
+        || (logado()
+          && request.resource.data.keys().hasOnly(['autorId', 'autorNome', 'autorSala', 'mural', 'texto', 'ts', 'criadoEm'])
+          && request.resource.data.autorId == request.auth.uid
+          && postValido(request.resource.data)
+          && request.resource.data.ts is number
+          && request.resource.data.criadoEm == request.time
+          && request.resource.data.autorNome == get(perfil()).data.nome
+          && request.resource.data.autorSala == get(perfil()).data.turma
+          && getAfter(perfil()).data.ultimoPost == request.time
+          && (get(perfil()).data.get('ultimoPost', null) == null
+              || get(perfil()).data.ultimoPost < request.time - duration.value(10, 's')));
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (logado() && resource.data.autorId == request.auth.uid);
+    }
+
+    // Lances do Topo da Torcida: o torcedor só cria (pendente) e vê os próprios;
+    // o gerenciador confere o Pix e aprova ou recusa. No máximo 1 lance a cada 30 segundos.
+    match /lances/{lid} {
+      allow read: if isAdmin() || (logado() && resource.data.autorId == request.auth.uid);
+      allow create: if logado()
+        && request.resource.data.keys().hasOnly(['autorId', 'autorNome', 'autorSala', 'mural', 'texto', 'valor', 'codigo', 'criadoEm', 'status'])
+        && request.resource.data.autorId == request.auth.uid
+        && request.resource.data.status == 'pendente'
+        && texto(request.resource.data.texto, 1, 280)
+        && texto(request.resource.data.mural, 1, 60)
+        && texto(request.resource.data.codigo, 4, 8)
+        && request.resource.data.valor is number
+        && request.resource.data.valor >= 0.5 && request.resource.data.valor <= 200
+        && request.resource.data.criadoEm == request.time
+        && request.resource.data.autorNome == get(perfil()).data.nome
+        && request.resource.data.autorSala == get(perfil()).data.turma
+        && getAfter(perfil()).data.ultimoLance == request.time
+        && (get(perfil()).data.get('ultimoLance', null) == null
+            || get(perfil()).data.ultimoLance < request.time - duration.value(30, 's'));
+      allow update, delete: if isAdmin();
+    }
+
+    // Post fixado no topo (topo/atual) e Pix para os lances (config/pix): todos leem, só o gerenciador grava
+    match /topo/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

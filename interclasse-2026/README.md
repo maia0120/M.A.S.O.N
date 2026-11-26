@@ -17,6 +17,7 @@ Site no ar: <https://interclasse-2026.vercel.app>
 | `styles.css` | Estilos (Tailwind já compilado) |
 | `config.js` | Configuração pública do app Web do Firebase (já preenchida) |
 | `firestore.rules` | Regras de segurança do Firestore |
+| `qrcode.js` | Gerador de QR Code do Pix ([qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator), licença MIT) |
 
 ## Configuração do Firebase (uma vez só)
 
@@ -41,7 +42,23 @@ O site está na Vercel (projeto `interclasse-2026`, pasta raiz `interclasse-2026
 - **Torcedor:** toque em *Sou torcedor → Diga seu nome e sala*. O cadastro fica salvo no aparelho; se a pessoa limpar o navegador, precisa se identificar de novo (os posts antigos continuam no mural).
 - **Moderação:** a aba *Mural* do painel mostra os posts de todas as salas, com os denunciados no topo. Dá para apagar qualquer post.
 
+## Topo da Torcida (leilão do post fixado)
+Um único post fica fixado no topo de todos os murais (e na tela inicial). Para tirá-lo de lá, é preciso dar um lance maior, pago por Pix.
+
+- **Abrir os lances:** no painel, aba *Mural* → *Pix para receber os lances*, cadastre a chave Pix, o nome do titular e a cidade e toque em *Salvar e abrir lances*. *Fechar lances* tira o botão de lance da torcida.
+- **Valores:** o primeiro lance do dia é R$ 0,50; cada lance seguinte precisa ser pelo menos R$ 0,25 maior. Todo dia (horário de Brasília) o mínimo volta para R$ 0,50. Lance máximo: R$ 200.
+- **Proteção:** quem entra no topo fica pelo menos 5 minutos lá antes de poder ser superado.
+- **Como o torcedor paga:** ele escreve o post, escolhe o valor e o site gera o QR Code e o *Pix copia e cola* já com o valor e um código de 5 letras do lance. Depois de pagar, toca em *Enviar lance*.
+- **Como o gerenciador aprova:** os lances aparecem na aba *Mural* (com aviso na aba). Confira no extrato do banco o **valor** e o **código** e toque em:
+  - *Pix ok → Topo*: o post vai para o topo; o anterior continua no mural com o selo "Já foi Topo";
+  - *Pix ok → Destaque*: quando o topo está protegido ou alguém já passou na frente, o post entra no mural com borda e selo de destaque;
+  - *Recusar*: Pix não caiu ou texto ofensivo (sem devolução, como avisado na tela de lance).
+- O painel mostra quanto foi arrecadado no dia e no total. Apagar o post do topo também limpa o topo.
+
+## Custos do Firebase
+Cada post é um documento e cada pessoa carrega só os 50 posts mais recentes da sala que está vendo (o gerenciador vê os 100 mais recentes). Assim, abrir o site custa cerca de 55 leituras, e um post novo custa 1 leitura para cada pessoa com aquela sala aberta. O plano gratuito (Spark) dá 50 mil leituras por dia; se precisar de mais, ative o plano Blaze com um alerta de orçamento.
+
 ## Boas práticas
 - Para evitar abuso, você pode ativar o **App Check** no Firebase (opcional; exige pequena alteração no site).
-- O mural aceita até 150 posts por torcedor (validado também nas regras do banco) e 280 caracteres por post (validado no site).
+- Cada post tem até 280 caracteres, cada torcedor pode fazer até 300 posts, com intervalo mínimo de 10 segundos entre posts e de 30 segundos entre lances (tudo validado nas regras do banco).
 - Para trocar as cores, edite as variáveis `--color-*` usadas em `styles.css` (paleta: `ink`, `paper`, `card`, `line`, `mute`, `accent`, `live`, `win`).

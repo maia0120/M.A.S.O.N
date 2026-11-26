@@ -23,12 +23,30 @@
         :focus-visible { outline: 2px solid #1f45c9; outline-offset: 2px; }
         input, select, textarea { font-size: 16px; }
         @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
+        /* Topo da Torcida (leilão do post fixado) */
+        .topo-card { border: 2px solid var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, #fff); border-radius: .5rem; padding: 1rem; }
+        .topo-texto { font-size: 17px; font-weight: 600; color: var(--color-ink); margin-top: .5rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .btn-topo { display: block; width: 100%; margin-top: .75rem; background: var(--color-accent); color: #fff; border-radius: .375rem; padding: .75rem; font-weight: 600; font-size: .9rem; }
+        .btn-topo:disabled, .btn-desab { opacity: .55; cursor: not-allowed; }
+        .post-destaque { border-color: var(--color-accent) !important; box-shadow: 0 0 0 1px var(--color-accent); }
+        .selo { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+        .selo-topo { background: var(--color-gold); color: var(--color-ink); }
+        .selo-destaque { background: var(--color-accent); color: #fff; }
+        .selo-ex { background: var(--color-card); color: var(--color-mute); border: 1px solid var(--color-line); }
+        .aviso-lance { font-size: .8rem; color: var(--color-ink); background: var(--color-card); border: 1px solid var(--color-line); border-radius: .375rem; padding: .5rem .75rem; }
+        .pix-box { border: 1px solid var(--color-line); border-radius: .5rem; padding: .75rem; display: grid; gap: .6rem; }
+        .pix-qr svg { width: 190px; height: 190px; display: block; margin: 0 auto; }
+        .pix-code { font-family: ui-monospace, monospace; font-size: 10px; color: var(--color-mute); word-break: break-all; user-select: all; }
+        .modal-rolagem { max-height: 92vh; overflow-y: auto; }
+        .resumo-clicavel { cursor: pointer; }
     </style>
     <!-- Firebase (banco de dados + login) e configuração do projeto -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="config.js"></script>
+    <!-- QR Code do Pix (qrcode-generator, MIT) -->
+    <script src="qrcode.js"></script>
 </head>
 <body class="bg-paper text-ink min-h-screen font-sans selection:bg-accent selection:text-paper">
 
@@ -59,6 +77,7 @@
                 </button>
             </div>
             <div id="inicio-aovivo" class="mt-10"></div>
+            <div id="inicio-topo" class="mt-6"></div>
             <p id="aviso-local" class="hidden mt-8 text-xs text-warn bg-warn/10 border border-warn/40 rounded-md p-3"></p>
         </div>
     </div>
@@ -86,6 +105,7 @@
             </nav>
         </header>
         <main class="max-w-3xl mx-auto w-full px-4 py-5 flex-grow">
+            <div id="torc-topo" class="space-y-2 mb-5"></div>
             <section id="tview-mural" class="tview space-y-4">
                 <div>
                     <h2 class="text-3xl font-extrabold text-ink leading-tight">Mural das salas</h2>
@@ -132,6 +152,39 @@
                 <div class="pt-2 flex items-center justify-end gap-3">
                     <button type="button" onclick="fecharPerfil()" class="px-4 py-2.5 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
                     <button type="submit" class="bg-accent hover:bg-accent/90 text-paper px-5 py-2.5 rounded-md text-sm font-semibold">Entrar na torcida</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal lance do Topo da Torcida -->
+    <div id="modal-lance" class="fixed inset-0 bg-ink/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-paper border border-line rounded-lg w-full max-w-sm modal-rolagem">
+            <div class="p-5 border-b border-line">
+                <h3 class="font-bold text-ink"><i class="fa-solid fa-crown text-accent"></i> Tomar o Topo da Torcida</h3>
+                <p class="text-xs text-mute">Seu post fica fixado no topo de todos os murais até alguém dar um lance maior. Fica pelo menos 5 minutos protegido.</p>
+            </div>
+            <form onsubmit="enviarLance(event)" class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="lance-texto">Seu post</label>
+                    <textarea id="lance-texto" required maxlength="280" rows="3" placeholder="O que vai ficar lá em cima?" class="w-full bg-card border border-line rounded-md px-3 py-3 text-base text-ink resize-none focus:outline-none focus:border-ink"></textarea>
+                    <p class="text-xs text-mute mt-1">Também entra no mural do <b id="lance-mural"></b>.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="lance-valor">Seu lance (R$)</label>
+                    <input id="lance-valor" type="number" inputmode="decimal" step="0.25" min="0.5" max="200" required oninput="atualizarPixLance()" class="w-full bg-card border border-line rounded-md px-3 py-3 text-base text-ink focus:outline-none focus:border-ink">
+                    <p id="lance-minimo" class="text-xs text-mute mt-1"></p>
+                </div>
+                <div id="lance-pix"></div>
+                <ol class="text-xs text-ink space-y-1 list-decimal pl-4">
+                    <li>Pague o Pix acima (o código <b id="lance-codigo"></b> já vai junto).</li>
+                    <li>Toque em <b>Enviar lance</b>.</li>
+                    <li>O organizador confere o pagamento e o texto e libera o seu post.</li>
+                </ol>
+                <p class="text-xs text-mute">Post ofensivo é recusado sem devolução. Se alguém passar na sua frente antes da aprovação, seu post entra como destaque no mural.</p>
+                <div class="flex items-center justify-end gap-3">
+                    <button type="button" onclick="fecharLance()" class="px-4 py-2.5 rounded-md text-sm font-medium text-mute hover:bg-card">Cancelar</button>
+                    <button id="lance-btn" type="submit" class="bg-accent hover:bg-accent/90 disabled:opacity-50 text-paper px-5 py-2.5 rounded-md text-sm font-semibold">Já paguei · Enviar lance</button>
                 </div>
             </form>
         </div>
@@ -331,6 +384,34 @@
             <div>
                 <h2 class="text-3xl font-extrabold text-ink leading-tight">Mural da Torcida</h2>
                 <p class="text-sm text-mute">Veja os posts de todas as salas e apague o que passar do limite.</p>
+            </div>
+            <div class="space-y-3">
+                <h3 class="text-xl font-extrabold text-ink"><i class="fa-solid fa-crown text-accent"></i> Topo da Torcida (leilão)</h3>
+                <div id="ger-topo" class="space-y-3"></div>
+                <details class="bg-card border border-line rounded-lg p-4">
+                    <summary class="text-sm font-semibold text-ink resumo-clicavel">Pix para receber os lances · <span id="ger-pix-status"></span></summary>
+                    <form onsubmit="salvarPix(event)" class="space-y-3 mt-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="ger-pix-chave">Chave Pix</label>
+                            <input id="ger-pix-chave" required maxlength="77" autocomplete="off" placeholder="E-mail, celular (+5511999999999), CPF ou chave aleatória" class="w-full bg-paper border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="ger-pix-nome">Nome do titular</label>
+                                <input id="ger-pix-nome" maxlength="60" placeholder="Como no banco" class="w-full bg-paper border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-mute uppercase mb-1.5" for="ger-pix-cidade">Cidade</label>
+                                <input id="ger-pix-cidade" maxlength="40" placeholder="Ex: São Paulo" class="w-full bg-paper border border-line rounded-md px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-ink">
+                            </div>
+                        </div>
+                        <p class="text-xs text-mute">A chave aparece para quem for dar lance. Cada lance tem um código de 5 letras que vai junto no Pix: confira o valor e o código no extrato antes de aprovar.</p>
+                        <div class="flex items-center justify-end gap-3">
+                            <button id="ger-pix-fechar" type="button" onclick="fecharLances()" class="hidden px-4 py-2 rounded-md text-sm font-medium text-live">Fechar lances</button>
+                            <button type="submit" class="bg-ink hover:bg-ink/85 text-paper px-4 py-2 rounded-md text-sm font-semibold">Salvar e abrir lances</button>
+                        </div>
+                    </form>
+                </details>
             </div>
             <div id="ger-denuncias"></div>
             <div id="ger-chips-mural" class="flex gap-2 overflow-x-auto pb-1"></div>
@@ -545,6 +626,7 @@
 
         // Atualizar Interface Inteira
         function atualizarTudo() {
+            reassinar();
             renderizarInicio();
             renderizarTorcida();
             if (modo === 'gerente') renderizarMuralGerente();
@@ -914,6 +996,12 @@
                 const j = estado.jogos.find(x => x.id === el.dataset.relogio);
                 if (j && j.status === 'ao_vivo') el.textContent = fmtTempo(tempoMs(j));
             });
+            let expirou = false;
+            document.querySelectorAll('[data-protecao]').forEach(el => {
+                const resta = Number(el.dataset.protecao) - Date.now();
+                if (resta <= 0) expirou = true; else el.textContent = fmtMmSs(resta);
+            });
+            if (expirou) { renderizarTorcida(); renderizarMuralGerente(); }
         }, 1000);
 
         function atualizarSelectsJogos() {
@@ -1209,6 +1297,9 @@
             if (servidor === 'firebase' && fb) {
                 fb.auth().signOut().catch(() => {});
                 souDono = null; meuId = null;
+                if (pararPostsGerente) { pararPostsGerente(); pararPostsGerente = null; }
+                gerenteAssinado = null; postsGerente = []; postsAvulsos = {};
+                reassinar();
             }
             voltarInicio();
         }
@@ -1263,12 +1354,12 @@
             const turma = document.getElementById('perfil-sala').value;
             if (!nome || !turma) return;
             const atual = meuPerfil();
-            const corpo = { nome, turma, posts: atual ? (atual.posts || []) : [], denuncias: atual ? (atual.denuncias || []) : [] };
             try {
-                await db.doc('torcida/' + meuId).set(corpo);
+                await FS().doc('torcida/' + meuId).set({ nome, turma }, { merge: true });
                 fecharPerfil();
                 if (!atual) muralTorcida = turma;
                 toast(atual ? 'Perfil atualizado.' : `Bem-vindo à torcida, ${nome}!`);
+                renderizarTorcida();
             } catch (err) {
                 fecharPerfil();
                 podeEscrever = false;
@@ -1277,23 +1368,100 @@
             }
         }
 
-        // ----- Posts -----
-        function todosPosts() {
-            const lista = [];
-            torcedores.forEach(t => (t.posts || []).forEach(p => {
-                if (!p || typeof p.texto !== 'string') return;
-                lista.push({ ...p, autorId: t.id, autorNome: t.nome || 'Torcedor', autorSala: t.turma || '' });
-            }));
-            return lista.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        // ----- Posts (um documento por post na coleção "posts") -----
+        // IDs em ordem decrescente de tempo: a consulta padrão do Firestore (por ID)
+        // já devolve os mais novos primeiro, sem precisar de índice composto.
+        function idDesc() { return String(9999999999999 - Date.now()).padStart(13, '0') + Math.random().toString(36).slice(2, 6); }
+        function msDe(t) { return t && t.toMillis ? t.toMillis() : (typeof t === 'number' ? t : Date.now()); }
+        function FS() { return fb.firestore(); }
+        function FV() { return firebase.firestore.FieldValue; }
+        const POSTS_POR_MURAL = 50, POSTS_GERENTE = 100;
+
+        let postsMural = [], muralAssinado = null, pararPostsTorcida = null;
+        let postsGerente = [], gerenteAssinado = null, pararPostsGerente = null;
+        let postsAvulsos = {}; // posts denunciados buscados um a um (gerente)
+        let perfilDe = null, pararPerfil = null;
+        let lancesDe = null, pararLances = null, meusLances = [], lancesGerente = [], lancesCarregados = false;
+        let topo = null, configPix = null;
+
+        function docPost(d) {
+            const v = d.data() || {};
+            return { id: d.id, autorId: String(v.autorId || ''), autorNome: String(v.autorNome || 'Torcedor').slice(0, 40), autorSala: String(v.autorSala || ''), mural: String(v.mural || ''), texto: String(v.texto || ''), ts: Number(v.ts) || msDe(v.criadoEm), destaque: !!v.destaque, valor: Number(v.valor) || 0, jaFoiTopo: !!v.jaFoiTopo };
         }
+        const porData = (a, b) => (b.ts || 0) - (a.ts || 0);
+
+        function garantirPostsTorcida() {
+            if (!fb || !muralTorcida || muralAssinado === muralTorcida) return;
+            if (pararPostsTorcida) pararPostsTorcida();
+            const alvo = muralAssinado = muralTorcida;
+            postsMural = [];
+            pararPostsTorcida = FS().collection('posts').where('mural', '==', alvo).limit(POSTS_POR_MURAL).onSnapshot(s => {
+                if (alvo !== muralAssinado) return;
+                postsMural = s.docs.map(docPost).sort(porData);
+                renderizarTorcida();
+            }, () => {});
+        }
+        function garantirPostsGerente() {
+            if (!fb || !souDono || gerenteAssinado === muralGerente) return;
+            if (pararPostsGerente) pararPostsGerente();
+            const alvo = gerenteAssinado = muralGerente;
+            postsGerente = [];
+            const q = alvo === 'todos' ? FS().collection('posts').limit(POSTS_GERENTE) : FS().collection('posts').where('mural', '==', alvo).limit(POSTS_GERENTE);
+            pararPostsGerente = q.onSnapshot(s => {
+                if (alvo !== gerenteAssinado) return;
+                postsGerente = s.docs.map(docPost).sort(porData);
+                renderizarMuralGerente();
+            }, () => {});
+        }
+
+        // Perfil: o torcedor escuta só o próprio documento; o gerente escuta todos (para ver as denúncias)
+        function reassinar() {
+            if (!fb) return;
+            const chave = souDono ? '*' : (meuId || '');
+            if (perfilDe !== chave) {
+                perfilDe = chave;
+                if (pararPerfil) { pararPerfil(); pararPerfil = null; }
+                torcedores = [];
+                const aplicar = docs => {
+                    torcedores = docs.filter(d => d.exists).map(d => {
+                        const v = d.data() || {};
+                        return { id: d.id, nome: String(v.nome || '').slice(0, 40), turma: String(v.turma || ''), denuncias: Array.isArray(v.denuncias) ? v.denuncias : [] };
+                    });
+                    renderizarTorcida(); renderizarMuralGerente();
+                };
+                if (souDono) pararPerfil = FS().collection('torcida').onSnapshot(s => aplicar(s.docs), () => {});
+                else if (meuId) pararPerfil = FS().doc('torcida/' + meuId).onSnapshot(d => aplicar([d]), () => {});
+            }
+            if (lancesDe !== chave) {
+                lancesDe = chave;
+                if (pararLances) { pararLances(); pararLances = null; }
+                meusLances = []; lancesGerente = []; lancesCarregados = false;
+                const conv = d => { const v = d.data() || {}; return { id: d.id, ...v, valor: Number(v.valor) || 0, criado: msDe(v.criadoEm) }; };
+                if (souDono) pararLances = FS().collection('lances').limit(300).onSnapshot(s => {
+                    const antes = lancesGerente.filter(l => l.status === 'pendente').length;
+                    lancesGerente = s.docs.map(conv);
+                    const agora = lancesGerente.filter(l => l.status === 'pendente').length;
+                    if (lancesCarregados && agora > antes) { toast('Novo lance chegou! Confira o Pix no Mural.'); try { navigator.vibrate && navigator.vibrate(200); } catch (e) {} }
+                    lancesCarregados = true;
+                    renderizarMuralGerente();
+                }, () => {});
+                else if (meuId) pararLances = FS().collection('lances').where('autorId', '==', meuId).onSnapshot(s => {
+                    meusLances = s.docs.map(conv).sort((a, b) => b.criado - a.criado);
+                    renderizarTorcida();
+                }, () => {});
+            }
+        }
+
         function contarDenuncias() {
             const mapa = {};
             torcedores.forEach(t => (t.denuncias || []).forEach(d => {
                 if (!d || !d.postId) return;
-                const k = d.autorId + '|' + d.postId;
-                mapa[k] = (mapa[k] || 0) + 1;
+                mapa[d.postId] = (mapa[d.postId] || 0) + 1;
             }));
             return mapa;
+        }
+        function acharPost(id) {
+            return postsMural.find(p => p.id === id) || postsGerente.find(p => p.id === id) || postsAvulsos[id] || null;
         }
         function tempoRelativo(ts) {
             const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
@@ -1310,43 +1478,49 @@
             const texto = campo.value.trim().replace(/\n{3,}/g, '\n\n').slice(0, 280);
             if (!texto) return;
             if (Date.now() - ultimoPost < 15000) { toast('Calma! Espere alguns segundos para postar de novo.', 'erro'); return; }
-            const post = { id: novoId(), mural: muralTorcida, texto, ts: Date.now() };
-            const posts = [post, ...(p.posts || [])].slice(0, 150);
             const btn = document.getElementById('torc-btn-postar');
             btn.disabled = true;
             try {
-                await db.doc('torcida/' + meuId).update({ posts });
+                const lote = FS().batch();
+                lote.set(FS().doc('posts/' + idDesc()), { autorId: meuId, autorNome: p.nome, autorSala: p.turma, mural: muralTorcida, texto, ts: Date.now(), criadoEm: FV().serverTimestamp() });
+                lote.update(FS().doc('torcida/' + meuId), { ultimoPost: FV().serverTimestamp(), qtdPosts: FV().increment(1) });
+                await lote.commit();
                 ultimoPost = Date.now();
                 campo.value = '';
                 toast('Post publicado no mural ' + muralTorcida + '!');
             } catch (err) {
-                toast(err && err.code === 'invalid_argument' ? 'Seu acesso permite só ler o mural. Peça ao organizador acesso para postar.' : 'Não foi possível publicar. Tente de novo.', 'erro');
-                if (err && err.code === 'invalid_argument') { podeEscrever = false; renderizarTorcida(); }
+                toast('Não foi possível publicar. Espere alguns segundos e tente de novo.', 'erro');
             } finally { btn.disabled = false; }
         }
 
-        async function apagarPost(autorId, postId) {
-            const t = torcedores.find(x => x.id === autorId);
-            if (!t) return;
-            const souAutor = autorId === meuId;
+        async function apagarPost(postId) {
+            const p = acharPost(postId);
+            if (!p) return;
+            const souAutor = p.autorId === meuId && !souDono;
             const executar = async () => {
                 try {
-                    await db.doc('torcida/' + autorId).update({ posts: (t.posts || []).filter(p => p.id !== postId) });
-                    // limpa denúncias desse post do próprio documento (se for o dono do painel, só some da lista ao apagar o post)
+                    const lote = FS().batch();
+                    lote.delete(FS().doc('posts/' + postId));
+                    if (souDono && topo && topo.postId === postId) lote.delete(FS().doc('topo/atual'));
+                    await lote.commit();
+                    if (postsAvulsos[postId]) postsAvulsos[postId] = null;
                     toast('Post apagado.');
+                    renderizarMuralGerente();
                 } catch (err) { toast('Não foi possível apagar o post.', 'erro'); }
             };
-            confirmar(souAutor ? 'Apagar seu post?' : 'Apagar este post?', souAutor ? 'Ele some do mural para todo mundo.' : `Post de ${t.nome || 'torcedor'} será removido do mural.`, 'Apagar', executar);
+            const noTopo = topo && topo.postId === postId;
+            confirmar(souAutor ? 'Apagar seu post?' : 'Apagar este post?',
+                souAutor ? 'Ele some do mural para todo mundo.' : `Post de ${p.autorNome} será removido do mural${noTopo ? ' e do Topo da Torcida' : ''}.`, 'Apagar', executar);
         }
 
-        async function denunciarPost(autorId, postId) {
+        async function denunciarPost(postId) {
             const p = meuPerfil();
             if (!p) { abrirPerfilTorcedor(); return; }
             const den = p.denuncias || [];
-            if (den.some(d => d.postId === postId && d.autorId === autorId)) { toast('Você já denunciou este post.'); return; }
+            if (den.some(d => d.postId === postId)) { toast('Você já denunciou este post.'); return; }
             confirmar('Denunciar este post?', 'O organizador do campeonato vai analisar e pode apagá-lo.', 'Denunciar', async () => {
                 try {
-                    await db.doc('torcida/' + meuId).update({ denuncias: [...den, { autorId, postId, ts: Date.now() }].slice(-100) });
+                    await FS().doc('torcida/' + meuId).update({ denuncias: [...den, { postId, ts: Date.now() }].slice(-100) });
                     toast('Denúncia enviada ao organizador.');
                 } catch (err) { toast('Não foi possível enviar a denúncia.', 'erro'); }
             });
@@ -1356,8 +1530,13 @@
             const corSala = p.autorSala === p.mural ? 'text-win bg-accent/10 border-line' : 'text-warn bg-warn/10 border-warn/40';
             const visitante = p.autorSala && p.autorSala !== p.mural;
             const podeApagar = opcoes.moderar || p.autorId === meuId;
-            const nDen = opcoes.denuncias ? opcoes.denuncias[p.autorId + '|' + p.id] || 0 : 0;
-            return `<article class="bg-card border ${nDen ? 'border-live/40' : 'border-line'} rounded-lg p-4">
+            const nDen = opcoes.denuncias ? opcoes.denuncias[p.id] || 0 : 0;
+            const noTopo = topo && topo.postId === p.id;
+            const selo = noTopo ? `<span class="selo selo-topo"><i class="fa-solid fa-crown"></i> No topo agora · ${brl(p.valor)}</span>`
+                : p.jaFoiTopo ? `<span class="selo selo-ex"><i class="fa-solid fa-crown"></i> Já foi Topo · ${brl(p.valor)}</span>`
+                : p.destaque ? `<span class="selo selo-destaque"><i class="fa-solid fa-star"></i> Destaque · ${brl(p.valor)}</span>` : '';
+            return `<article class="bg-card border ${nDen ? 'border-live/40' : 'border-line'} ${p.destaque || noTopo ? 'post-destaque' : ''} rounded-lg p-4">
+                ${selo ? `<div class="mb-2">${selo}</div>` : ''}
                 <div class="flex items-start gap-3">
                     <div class="w-10 h-10 shrink-0 rounded-md bg-paper border border-line flex items-center justify-center text-sm font-bold text-ink">${esc(iniciais(p.autorNome))}</div>
                     <div class="min-w-0 flex-1">
@@ -1372,27 +1551,236 @@
                     </div>
                 </div>
                 <div class="flex justify-end gap-1 mt-2">
-                    ${!opcoes.moderar && p.autorId !== meuId && opcoes.podeDenunciar ? `<button onclick="denunciarPost('${esc(p.autorId)}','${esc(p.id)}')" class="text-xs px-3 py-2 rounded-lg text-mute hover:text-live hover:bg-live/10"><i class="fa-regular fa-flag"></i> Denunciar</button>` : ''}
-                    ${podeApagar && opcoes.podeApagar ? `<button onclick="apagarPost('${esc(p.autorId)}','${esc(p.id)}')" class="text-xs px-3 py-2 rounded-lg text-live hover:bg-live/10"><i class="fa-solid fa-trash"></i> Apagar</button>` : ''}
+                    ${!opcoes.moderar && p.autorId !== meuId && opcoes.podeDenunciar ? `<button onclick="denunciarPost('${esc(p.id)}')" class="text-xs px-3 py-2 rounded-lg text-mute hover:text-live hover:bg-live/10"><i class="fa-regular fa-flag"></i> Denunciar</button>` : ''}
+                    ${podeApagar && opcoes.podeApagar ? `<button onclick="apagarPost('${esc(p.id)}')" class="text-xs px-3 py-2 rounded-lg text-live hover:bg-live/10"><i class="fa-solid fa-trash"></i> Apagar</button>` : ''}
                 </div>
             </article>`;
         }
 
-        function chipsMural(alvo, atual, acao, incluirTodos, contagem) {
+        function chipsMural(alvo, atual, acao, incluirTodos) {
             const itens = (incluirTodos ? ['todos'] : []).concat(estado.turmas);
             document.getElementById(alvo).innerHTML = itens.map(t => {
                 const ativo = t === atual;
-                const n = t === 'todos' ? contagem.total : (contagem[t] || 0);
-                return `<button data-m="${esc(t)}" onclick="${acao}(this.dataset.m)" class="shrink-0 px-3.5 py-2 rounded-full text-sm font-semibold border transition ${ativo ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-line hover:border-ink'}">${t === 'todos' ? 'Todos' : esc(t)} <span class="${ativo ? 'text-paper/60' : 'text-mute'} font-normal">${n}</span></button>`;
+                return `<button data-m="${esc(t)}" onclick="${acao}(this.dataset.m)" class="shrink-0 px-3.5 py-2 rounded-full text-sm font-semibold border transition ${ativo ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-line hover:border-ink'}">${t === 'todos' ? 'Todos' : esc(t)}</button>`;
             }).join('');
-        }
-        function contagemPorMural(posts) {
-            const c = { total: posts.length };
-            posts.forEach(p => c[p.mural] = (c[p.mural] || 0) + 1);
-            return c;
         }
         function escolherMuralTorcida(m) { muralTorcida = m; renderizarTorcida(); }
         function escolherMuralGerente(m) { muralGerente = m; renderizarMuralGerente(); }
+
+        // ----- Topo da Torcida (leilão do post fixado) -----
+        const LANCE_INICIAL = 0.5, LANCE_PASSO = 0.25, LANCE_MAXIMO = 200, PROTECAO_MS = 5 * 60 * 1000;
+        function hojeSP() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); }
+        function diaSP(ms) { return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); }
+        function brl(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+        function centavos(v) { return Math.round(Number(v) * 100) / 100; }
+        function normalizarTopo(v) { return v ? { ...v, valor: Number(v.valor) || 0, desdeMs: msDe(v.desde) } : null; }
+        // Mínimo do próximo lance e até quando o topo atual está protegido.
+        // O valor volta para R$ 0,50 todo dia (horário de Brasília).
+        function statusTopo(t = topo) {
+            const valeHoje = !!(t && t.dia === hojeSP());
+            return { minimo: valeHoje ? centavos(t.valor + LANCE_PASSO) : LANCE_INICIAL, protegidoAte: valeHoje ? t.desdeMs + PROTECAO_MS : 0 };
+        }
+        function fmtMmSs(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+        function htmlTopo(comBotao) {
+            const st = statusTopo();
+            const protegido = st.protegidoAte > Date.now();
+            const corpo = topo && topo.texto
+                ? `<p class="topo-texto">${esc(topo.texto)}</p><p class="text-xs text-mute mt-2">${esc(topo.autorNome)} · ${esc(topo.autorSala)} · ${tempoRelativo(topo.desdeMs)}</p>`
+                : `<p class="text-sm text-ink mt-2">Ninguém no topo ainda. O primeiro lance é ${brl(st.minimo)}!</p>`;
+            let botao = '';
+            if (comBotao) {
+                if (!configPix || !configPix.chave) botao = `<p class="text-xs text-mute mt-3">Os lances ainda não foram abertos pelo organizador.</p>`;
+                else if (protegido) botao = `<button disabled class="btn-topo"><i class="fa-solid fa-shield-halved"></i> Protegido · próximo lance em <span data-protecao="${st.protegidoAte}">${fmtMmSs(st.protegidoAte - Date.now())}</span></button>`;
+                else botao = `<button onclick="abrirLance()" class="btn-topo"><i class="fa-solid fa-crown"></i> Tomar o topo por ${brl(st.minimo)}</button>`;
+            }
+            return `<div class="topo-card">
+                <div class="flex items-center justify-between text-xs font-bold uppercase"><span class="text-accent"><i class="fa-solid fa-crown"></i> Topo da Torcida</span>${topo && topo.texto ? `<span class="text-ink">${brl(topo.valor)}</span>` : ''}</div>
+                ${corpo}${botao}</div>`;
+        }
+        function htmlMeusLances() {
+            const msg = {
+                pendente: l => `<i class="fa-solid fa-hourglass-half"></i> Seu lance de <b>${brl(l.valor)}</b> (código <b>${esc(l.codigo)}</b>) está aguardando o organizador conferir o Pix.`,
+                topo: l => `<i class="fa-solid fa-crown"></i> Seu lance de <b>${brl(l.valor)}</b> levou o topo!`,
+                destaque: l => `<i class="fa-solid fa-star"></i> Seu lance de <b>${brl(l.valor)}</b> foi superado antes de entrar e virou destaque no mural.`,
+                recusado: l => `<i class="fa-solid fa-xmark"></i> Seu lance de <b>${brl(l.valor)}</b> foi recusado pelo organizador.`
+            };
+            const recentes = meusLances.filter(l => msg[l.status] && (l.status === 'pendente' || Date.now() - l.criado < 6 * 3600e3)).slice(0, 3);
+            return recentes.map(l => `<p class="aviso-lance">${msg[l.status](l)}</p>`).join('');
+        }
+
+        // Pix "copia e cola" (padrão BR Code do Banco Central) com valor e código do lance
+        function crc16(txt) {
+            let crc = 0xFFFF;
+            for (const b of new TextEncoder().encode(txt)) {
+                crc ^= b << 8;
+                for (let i = 0; i < 8; i++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+            }
+            return crc.toString(16).toUpperCase().padStart(4, '0');
+        }
+        function pixCopiaECola(chave, nome, cidade, valor, txid) {
+            const campo = (id, v) => id + String(v.length).padStart(2, '0') + v;
+            const limpa = (s, n) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]/g, '').trim().toUpperCase().slice(0, n);
+            const conta = campo('00', 'br.gov.bcb.pix') + campo('01', String(chave).trim());
+            const p = campo('00', '01') + campo('26', conta) + campo('52', '0000') + campo('53', '986') + campo('54', centavos(valor).toFixed(2))
+                + campo('58', 'BR') + campo('59', limpa(nome, 25) || 'RECEBEDOR') + campo('60', limpa(cidade, 15) || 'BRASIL') + campo('62', campo('05', txid)) + '6304';
+            return p + crc16(p);
+        }
+
+        let codigoLance = '';
+        function abrirLance() {
+            if (!meuPerfil()) { abrirPerfilTorcedor(); return; }
+            if (!configPix || !configPix.chave) { toast('Os lances ainda não foram abertos pelo organizador.', 'erro'); return; }
+            const st = statusTopo();
+            if (st.protegidoAte > Date.now()) { toast('O topo está protegido por mais ' + fmtMmSs(st.protegidoAte - Date.now()) + '.', 'erro'); return; }
+            const letras = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+            codigoLance = Array.from({ length: 5 }, () => letras[Math.floor(Math.random() * letras.length)]).join('');
+            const valor = document.getElementById('lance-valor');
+            valor.min = st.minimo.toFixed(2); valor.value = st.minimo.toFixed(2);
+            document.getElementById('lance-mural').textContent = muralTorcida || meuPerfil().turma;
+            document.getElementById('lance-codigo').textContent = codigoLance;
+            document.getElementById('modal-lance').classList.remove('hidden');
+            atualizarPixLance();
+            setTimeout(() => document.getElementById('lance-texto').focus(), 50);
+        }
+        function fecharLance() { document.getElementById('modal-lance').classList.add('hidden'); }
+        function atualizarPixLance() {
+            const st = statusTopo();
+            const valor = centavos(document.getElementById('lance-valor').value);
+            const ok = valor >= st.minimo && valor <= LANCE_MAXIMO;
+            document.getElementById('lance-minimo').textContent = ok ? `Lance mínimo agora: ${brl(st.minimo)}.` : `O lance precisa ser entre ${brl(st.minimo)} e ${brl(LANCE_MAXIMO)}.`;
+            document.getElementById('lance-minimo').className = 'text-xs mt-1 ' + (ok ? 'text-mute' : 'text-live');
+            const box = document.getElementById('lance-pix');
+            if (!ok || !configPix) { box.innerHTML = ''; return; }
+            const codigo = pixCopiaECola(configPix.chave, configPix.nome, configPix.cidade, valor, codigoLance);
+            let qr = '';
+            try { const q = qrcode(0, 'M'); q.addData(codigo); q.make(); qr = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); } catch (e) {}
+            box.innerHTML = `<div class="pix-box">
+                <p class="text-xs font-semibold text-mute uppercase">Pague ${brl(valor)} no Pix</p>
+                ${qr ? `<div class="pix-qr">${qr}</div>` : ''}
+                <button type="button" onclick="copiarPix()" class="w-full bg-ink text-paper rounded-md py-2.5 text-sm font-semibold"><i class="fa-regular fa-copy"></i> Copiar Pix copia e cola</button>
+                <p id="lance-pix-codigo" class="pix-code">${esc(codigo)}</p>
+                <p class="text-xs text-mute">Chave: <b class="text-ink">${esc(configPix.chave)}</b>${configPix.nome ? ' · ' + esc(configPix.nome) : ''}</p>
+            </div>`;
+        }
+        async function copiarPix() {
+            const t = document.getElementById('lance-pix-codigo').textContent;
+            try { await navigator.clipboard.writeText(t); toast('Pix copiado! Cole no app do seu banco.'); }
+            catch (e) { toast('Não deu para copiar. Segure o código e copie manualmente.', 'erro'); }
+        }
+        async function enviarLance(e) {
+            e.preventDefault();
+            const p = meuPerfil();
+            if (!p) { fecharLance(); abrirPerfilTorcedor(); return; }
+            const texto = document.getElementById('lance-texto').value.trim().replace(/\n{3,}/g, '\n\n').slice(0, 280);
+            const valor = centavos(document.getElementById('lance-valor').value);
+            const st = statusTopo();
+            if (!texto) return;
+            if (!(valor >= st.minimo && valor <= LANCE_MAXIMO)) { atualizarPixLance(); toast('O lance mínimo agora é ' + brl(st.minimo) + '.', 'erro'); return; }
+            const btn = document.getElementById('lance-btn');
+            btn.disabled = true;
+            try {
+                const lote = FS().batch();
+                lote.set(FS().doc('lances/' + idDesc()), { autorId: meuId, autorNome: p.nome, autorSala: p.turma, mural: muralTorcida || p.turma, texto, valor, codigo: codigoLance, criadoEm: FV().serverTimestamp(), status: 'pendente' });
+                lote.update(FS().doc('torcida/' + meuId), { ultimoLance: FV().serverTimestamp() });
+                await lote.commit();
+                document.getElementById('lance-texto').value = '';
+                fecharLance();
+                toast('Lance enviado! Assim que o organizador conferir o Pix, ele entra.');
+            } catch (err) {
+                toast('Não foi possível enviar o lance. Espere 30 segundos entre um lance e outro.', 'erro');
+            } finally { btn.disabled = false; }
+        }
+
+        // Gerente: aprovar lance (vai para o topo ou vira destaque) ou recusar
+        async function aprovarLance(id, comoTopo) {
+            try {
+                await FS().runTransaction(async tx => {
+                    const refLance = FS().doc('lances/' + id), refTopo = FS().doc('topo/atual');
+                    const sl = await tx.get(refLance), stp = await tx.get(refTopo);
+                    if (!sl.exists || sl.data().status !== 'pendente') throw new Error('decidido');
+                    const l = sl.data(), atual = stp.exists ? normalizarTopo(stp.data()) : null;
+                    let anterior = null;
+                    if (comoTopo) {
+                        const st = statusTopo(atual);
+                        if (st.protegidoAte > Date.now()) throw new Error('protegido');
+                        if (Number(l.valor) < st.minimo) throw new Error('baixo');
+                        if (atual && atual.postId) { const sa = await tx.get(FS().doc('posts/' + atual.postId)); if (sa.exists) anterior = sa.ref; }
+                    }
+                    const postId = idDesc();
+                    tx.set(FS().doc('posts/' + postId), { autorId: l.autorId, autorNome: l.autorNome, autorSala: l.autorSala, mural: l.mural, texto: l.texto, ts: Date.now(), criadoEm: FV().serverTimestamp(), destaque: true, valor: Number(l.valor), lanceId: id });
+                    if (comoTopo) {
+                        if (anterior) tx.update(anterior, { jaFoiTopo: true });
+                        tx.set(refTopo, { postId, texto: l.texto, autorNome: l.autorNome, autorSala: l.autorSala, mural: l.mural, valor: Number(l.valor), desde: FV().serverTimestamp(), dia: hojeSP(), lanceId: id });
+                    }
+                    tx.update(refLance, { status: comoTopo ? 'topo' : 'destaque', decididoEm: FV().serverTimestamp(), postId });
+                });
+                toast(comoTopo ? 'Lance aprovado: o post foi para o topo!' : 'Lance aprovado como destaque no mural.');
+            } catch (err) {
+                const m = { decidido: 'Esse lance já foi decidido.', protegido: 'O topo ainda está protegido. Aguarde ou aprove como destaque.', baixo: 'O lance ficou abaixo do mínimo. Aprove como destaque.' }[err && err.message];
+                toast(m || 'Não foi possível aprovar o lance. Tente de novo.', 'erro');
+            }
+        }
+        function recusarLance(id) {
+            const l = lancesGerente.find(x => x.id === id);
+            if (!l) return;
+            confirmar('Recusar este lance?', `Lance de ${brl(l.valor)} de ${l.autorNome}. Use para Pix que não caiu ou texto ofensivo.`, 'Recusar', async () => {
+                try { await FS().doc('lances/' + id).update({ status: 'recusado', decididoEm: FV().serverTimestamp() }); toast('Lance recusado.'); }
+                catch (err) { toast('Não foi possível recusar o lance.', 'erro'); }
+            });
+        }
+        async function salvarPix(e) {
+            e.preventDefault();
+            const chave = document.getElementById('ger-pix-chave').value.trim();
+            const nome = document.getElementById('ger-pix-nome').value.trim().slice(0, 60);
+            const cidade = document.getElementById('ger-pix-cidade').value.trim().slice(0, 40);
+            if (!chave) { toast('Informe a chave Pix.', 'erro'); return; }
+            try { await FS().doc('config/pix').set({ chave, nome, cidade }); toast('Pix salvo. Os lances estão abertos!'); }
+            catch (err) { toast('Não foi possível salvar o Pix.', 'erro'); }
+        }
+        async function fecharLances() {
+            confirmar('Fechar os lances?', 'O botão de lance some para a torcida até você salvar o Pix de novo. O post do topo continua lá.', 'Fechar lances', async () => {
+                try { await FS().doc('config/pix').delete(); toast('Lances fechados.'); } catch (err) { toast('Não foi possível fechar os lances.', 'erro'); }
+            });
+        }
+        function preencherFormPix() {
+            const ids = { 'ger-pix-chave': 'chave', 'ger-pix-nome': 'nome', 'ger-pix-cidade': 'cidade' };
+            Object.entries(ids).forEach(([id, k]) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = (configPix && configPix[k]) || ''; });
+            const st = document.getElementById('ger-pix-status');
+            if (st) st.innerHTML = configPix && configPix.chave ? '<span class="text-win font-semibold"><i class="fa-solid fa-circle-check"></i> Lances abertos</span>' : '<span class="text-warn font-semibold"><i class="fa-solid fa-circle-pause"></i> Lances fechados: cadastre a chave Pix para abrir</span>';
+            const fechar = document.getElementById('ger-pix-fechar');
+            if (fechar) fechar.classList.toggle('hidden', !(configPix && configPix.chave));
+        }
+
+        function renderizarTopoGerente() {
+            const alvo = document.getElementById('ger-topo');
+            if (!alvo) return;
+            preencherFormPix();
+            const hoje = hojeSP();
+            const aprovadosHoje = lancesGerente.filter(l => (l.status === 'topo' || l.status === 'destaque') && diaSP(l.criado) === hoje);
+            const total = aprovadosHoje.reduce((s, l) => s + l.valor, 0);
+            const totalGeral = lancesGerente.filter(l => l.status === 'topo' || l.status === 'destaque').reduce((s, l) => s + l.valor, 0);
+            const pend = lancesGerente.filter(l => l.status === 'pendente').sort((a, b) => a.criado - b.criado);
+            const st = statusTopo();
+            const protegido = st.protegidoAte > Date.now();
+            alvo.innerHTML = `${htmlTopo(false)}
+                <p class="text-sm text-ink"><i class="fa-solid fa-sack-dollar text-win"></i> Arrecadado hoje: <b>${brl(total)}</b> (${aprovadosHoje.length} lance${aprovadosHoje.length === 1 ? '' : 's'}) · no total: <b>${brl(totalGeral)}</b></p>
+                <p class="text-xs text-mute">Próximo lance para o topo: ${brl(st.minimo)}${protegido ? ` · topo protegido por <span data-protecao="${st.protegidoAte}">${fmtMmSs(st.protegidoAte - Date.now())}</span>` : ''}</p>
+                ${pend.length ? `<p class="text-sm font-semibold text-accent mt-2"><i class="fa-solid fa-bell"></i> Lances aguardando você conferir o Pix (${pend.length})</p>` + pend.map(l => {
+                    const cabe = l.valor >= st.minimo;
+                    const btnTopo = cabe && !protegido ? `<button onclick="aprovarLance('${esc(l.id)}', true)" class="bg-accent text-paper px-3 py-2 rounded-md text-sm font-semibold"><i class="fa-solid fa-crown"></i> Pix ok → Topo</button>`
+                        : cabe ? `<button disabled class="btn-desab px-3 py-2 rounded-md text-sm font-semibold border border-line">Topo protegido <span data-protecao="${st.protegidoAte}">${fmtMmSs(st.protegidoAte - Date.now())}</span></button>`
+                        : `<span class="text-xs text-warn self-center">Abaixo do mínimo atual (${brl(st.minimo)})</span>`;
+                    return `<div class="bg-card border border-line rounded-lg p-4 space-y-2">
+                        <div class="flex flex-wrap items-center gap-2 text-sm"><b class="text-lg text-ink">${brl(l.valor)}</b><span class="selo selo-ex">código ${esc(l.codigo)}</span><span class="text-mute">${esc(l.autorNome)} · ${esc(l.autorSala)} · ${tempoRelativo(l.criado)}</span></div>
+                        <p class="text-[15px] text-ink whitespace-pre-wrap break-words">${esc(l.texto)}</p>
+                        <p class="text-xs text-mute">Vai para o mural do ${esc(l.mural)}</p>
+                        <div class="flex flex-wrap gap-2 pt-1">${btnTopo}
+                            <button onclick="aprovarLance('${esc(l.id)}', false)" class="bg-paper border border-line text-ink px-3 py-2 rounded-md text-sm font-semibold"><i class="fa-solid fa-star"></i> Pix ok → Destaque</button>
+                            <button onclick="recusarLance('${esc(l.id)}')" class="text-live px-3 py-2 rounded-md text-sm font-semibold"><i class="fa-solid fa-xmark"></i> Recusar</button></div>
+                    </div>`;
+                }).join('') : '<p class="text-xs text-mute">Nenhum lance aguardando.</p>'}`;
+        }
 
         // ----- Render torcida -----
         function renderizarTorcida() {
@@ -1403,11 +1791,17 @@
             if (muralTorcida && !estado.turmas.includes(muralTorcida)) muralTorcida = estado.turmas[0] || null;
             if (!muralTorcida) muralTorcida = estado.turmas[0] || null;
 
+            const topoEl = document.getElementById('torc-topo');
+            if (topoEl) topoEl.innerHTML = fb ? htmlTopo(true) + htmlMeusLances() : '';
             if (abaTorcida === 'mural') {
-                const posts = todosPosts();
-                chipsMural('torc-chips-mural', muralTorcida, 'escolherMuralTorcida', false, contagemPorMural(posts));
+                garantirPostsTorcida();
+                const posts = postsMural;
+                chipsMural('torc-chips-mural', muralTorcida, 'escolherMuralTorcida', false);
                 const form = document.getElementById('torc-form-post');
-                if (!db) {
+                // Só reconstrói a caixa de post quando ela muda de verdade (não apaga o que a pessoa está digitando)
+                const chaveForm = [!!db, !!p, podeEscrever, muralTorcida, p && p.turma].join('|');
+                if (form.dataset.chave === chaveForm) { /* mantém */ }
+                else if ((form.dataset.chave = chaveForm) && !db) {
                     form.innerHTML = `<div class="bg-card border border-line rounded-lg p-4 text-sm text-ink">O mural está sem conexão com o servidor agora. Tente recarregar a página em instantes.</div>`;
                 } else if (!p) {
                     form.innerHTML = `<button onclick="abrirPerfilTorcedor()" class="w-full bg-accent hover:bg-accent/90 text-paper rounded-lg p-4 font-semibold"><i class="fa-solid fa-user-plus"></i> Diga seu nome e sala para postar</button>`;
@@ -1469,30 +1863,42 @@
             btn.disabled = bloqueado;
             document.getElementById('gerente-desc').textContent = bloqueado ? 'Acesso exclusivo do organizador do campeonato.' : 'Placares ao vivo, súmulas, turmas e moderação do mural.';
             document.getElementById('gerente-cta').innerHTML = bloqueado ? '<i class="fa-solid fa-lock"></i> Restrito' : 'Abrir painel <i class="fa-solid fa-arrow-right ml-1"></i>';
+            const ti = document.getElementById('inicio-topo');
+            if (ti) ti.innerHTML = topo && topo.texto ? htmlTopo(false) : '';
             const vivos = estado.jogos.filter(j => j.status === 'ao_vivo');
             document.getElementById('inicio-aovivo').innerHTML = vivos.length ? `<p class="text-xs font-bold uppercase text-live mb-3"><i class="fa-solid fa-circle text-[8px] animate-pulse"></i> Agora</p><div class="space-y-3">${vivos.map(cartaoJogoLeitura).join('')}</div>` : '';
         }
 
         // ----- Moderação (gerente) -----
         function renderizarMuralGerente() {
-            const posts = todosPosts();
             const den = contarDenuncias();
-            const nDen = Object.keys(den).filter(k => posts.some(p => p.autorId + '|' + p.id === k)).length;
+            if (muralGerente !== 'todos' && !estado.turmas.includes(muralGerente)) muralGerente = 'todos';
+            if (fb && souDono) {
+                garantirPostsGerente();
+                Object.keys(den).forEach(id => {
+                    if (acharPost(id) || id in postsAvulsos) return;
+                    postsAvulsos[id] = null;
+                    FS().doc('posts/' + id).get().then(d => { postsAvulsos[id] = d.exists ? docPost(d) : null; renderizarMuralGerente(); }).catch(() => {});
+                });
+            }
+            const denunciados = Object.keys(den).map(acharPost).filter(Boolean).sort((a, b) => den[b.id] - den[a.id]);
+            const nPend = lancesGerente.filter(l => l.status === 'pendente').length;
             const badge = document.getElementById('badge-denuncias');
-            badge.textContent = nDen; badge.classList.toggle('hidden', !nDen);
-            if (!db) {
+            badge.textContent = denunciados.length + nPend; badge.classList.toggle('hidden', !(denunciados.length + nPend));
+            if (!db || !fb) {
                 document.getElementById('ger-denuncias').innerHTML = `<div class="bg-warn/10 border border-warn/40 rounded-lg p-4 text-sm text-warn">O mural só funciona com a página conectada ao servidor. Recarregue a página ou confira a configuração.</div>`;
+                document.getElementById('ger-topo').innerHTML = '';
                 document.getElementById('ger-chips-mural').innerHTML = '';
                 document.getElementById('ger-lista-posts').innerHTML = '';
                 return;
             }
-            const denunciados = posts.filter(p => den[p.autorId + '|' + p.id]).sort((a, b) => den[b.autorId + '|' + b.id] - den[a.autorId + '|' + a.id]);
+            renderizarTopoGerente();
             document.getElementById('ger-denuncias').innerHTML = denunciados.length ? `<div class="space-y-3"><p class="text-sm font-semibold text-live"><i class="fa-solid fa-flag"></i> Denunciados (${denunciados.length})</p>${denunciados.map(p => cartaoPost(p, { moderar: true, podeApagar: true, mostrarMural: true, denuncias: den })).join('')}</div>` : '';
-            if (muralGerente !== 'todos' && !estado.turmas.includes(muralGerente)) muralGerente = 'todos';
-            chipsMural('ger-chips-mural', muralGerente, 'escolherMuralGerente', true, contagemPorMural(posts));
-            const lista = muralGerente === 'todos' ? posts : posts.filter(p => p.mural === muralGerente);
+            chipsMural('ger-chips-mural', muralGerente, 'escolherMuralGerente', true);
+            const lista = postsGerente;
             document.getElementById('ger-lista-posts').innerHTML = lista.length ? lista.map(p => cartaoPost(p, { moderar: true, podeApagar: true, mostrarMural: true, denuncias: den })).join('')
                 : `<div class="text-center py-12 border border-dashed border-line rounded-lg text-mute"><i class="fa-regular fa-comments text-3xl mb-3 block"></i>Nenhum post ${muralGerente === 'todos' ? 'ainda' : 'no mural do ' + esc(muralGerente)}.</div>`;
+            if (lista.length >= POSTS_GERENTE) document.getElementById('ger-lista-posts').insertAdjacentHTML('beforeend', `<p class="text-xs text-mute text-center">Mostrando os ${POSTS_GERENTE} posts mais recentes${muralGerente === 'todos' ? '. Escolha uma sala para ver mais daquela sala' : ''}.</p>`);
         }
 
         // ----- Firebase (versão publicada como site) -----
@@ -1525,6 +1931,7 @@
             if (u) { meuId = u.uid; return; }
             const cred = await fb.auth().signInAnonymously();
             meuId = cred.user.uid;
+            reassinar();
         }
 
         async function conectarFirebase() {
@@ -1627,15 +2034,12 @@
                 aviso.classList.remove('hidden');
             });
 
-            // Torcida (um documento por torcedor)
-            db.collection('torcida').onSnapshot(snap => {
-                torcedores = snap.docs.filter(d => d.exists).map(d => {
-                    const v = d.data() || {};
-                    return { id: d.id, nome: String(v.nome || '').slice(0, 40), turma: String(v.turma || ''), posts: Array.isArray(v.posts) ? v.posts : [], denuncias: Array.isArray(v.denuncias) ? v.denuncias : [] };
-                });
-                renderizarTorcida();
-                renderizarMuralGerente();
-            }, () => {});
+            // Topo da Torcida e Pix dos lances (públicos); perfil e lances do usuário
+            if (fb) {
+                FS().doc('topo/atual').onSnapshot(d => { topo = d.exists ? normalizarTopo(d.data()) : null; renderizarInicio(); renderizarTorcida(); renderizarMuralGerente(); }, () => {});
+                FS().doc('config/pix').onSnapshot(d => { configPix = d.exists ? d.data() : null; renderizarTorcida(); renderizarMuralGerente(); }, () => {});
+                reassinar();
+            }
 
             atualizarTudo();
             // Se entrou como gerente e não é o dono, volta para o início
