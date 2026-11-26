@@ -24,8 +24,10 @@
         input, select, textarea { font-size: 16px; }
         @media (prefers-reduced-motion: reduce) { .animate-pulse { animation: none; } }
     </style>
-    <!-- Supabase (banco de dados + login) e configuração do projeto -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+    <!-- Firebase (banco de dados + login) e configuração do projeto -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="config.js"></script>
 </head>
 <body class="bg-paper text-ink min-h-screen font-sans selection:bg-accent selection:text-paper">
@@ -457,16 +459,16 @@
 
         // Carregar do localStorage se existir
         const EXEMPLO = JSON.parse(JSON.stringify(estado));
-        function supabaseConfigurado() {
-            const c = window.SUPABASE_CONFIG;
-            return !!(c && c.url && c.anonKey && window.supabase && window.supabase.createClient);
+        function firebaseConfigurado() {
+            const c = window.FIREBASE_CONFIG;
+            return !!(c && c.apiKey && c.projectId && window.firebase && window.firebase.initializeApp);
         }
         try {
             const salvo = localStorage.getItem('interclasse_state');
             if (salvo) {
                 const dados = JSON.parse(salvo);
                 if (dados && Array.isArray(dados.turmas) && Array.isArray(dados.jogos)) estado = dados;
-            } else if (supabaseConfigurado()) {
+            } else if (firebaseConfigurado()) {
                 estado = { turmas: ["1º Ano A", "1º Ano B", "1º Ano C", "1º Ano D", "1º Ano E"], jogos: [], turmas1AnoV2: true };
             }
         } catch(e) {}
@@ -1204,8 +1206,8 @@
         function lembrarModo(m) { try { localStorage.setItem('interclasse_modo', m); } catch(e) {} }
 
         function sairDoPainel() {
-            if (servidor === 'supabase' && sb) {
-                sb.auth.signOut().catch(() => {});
+            if (servidor === 'firebase' && fb) {
+                fb.auth().signOut().catch(() => {});
                 souDono = null; meuId = null;
             }
             voltarInicio();
@@ -1213,7 +1215,7 @@
         function voltarInicio() { modo = 'inicio'; lembrarModo('inicio'); fecharAoVivo(); mostrar('tela-inicio'); renderizarInicio(); }
 
         function entrarGerente() {
-            if (servidor === 'supabase' && !souDono) { abrirLogin(); return; }
+            if (servidor === 'firebase' && !souDono) { abrirLogin(); return; }
             if (souDono === false) { toast('Só o organizador do campeonato tem acesso ao painel.', 'erro'); return; }
             modo = 'gerente'; lembrarModo('gerente'); mostrar('app-gerente'); atualizarTudo();
         }
@@ -1241,7 +1243,7 @@
 
         // ----- Perfil do torcedor -----
         async function abrirPerfilTorcedor() {
-            if (db && !meuId && servidor === 'supabase') {
+            if (db && !meuId && servidor === 'firebase') {
                 try { await garantirSessaoTorcedor(); } catch (e) { toast('Não foi possível entrar na torcida agora. Tente de novo.', 'erro'); return; }
             }
             if (!db || !meuId) { toast(servidor === 'claude' ? 'Para entrar na torcida, abra o link com sua conta do Claude.' : 'O mural está sem conexão com o servidor agora.', 'erro'); return; }
@@ -1463,7 +1465,7 @@
         // ----- Tela inicial -----
         function renderizarInicio() {
             const btn = document.getElementById('btn-entrar-gerente');
-            const bloqueado = souDono === false && servidor !== 'supabase';
+            const bloqueado = souDono === false && servidor !== 'firebase';
             btn.disabled = bloqueado;
             document.getElementById('gerente-desc').textContent = bloqueado ? 'Acesso exclusivo do organizador do campeonato.' : 'Placares ao vivo, súmulas, turmas e moderação do mural.';
             document.getElementById('gerente-cta').innerHTML = bloqueado ? '<i class="fa-solid fa-lock"></i> Restrito' : 'Abrir painel <i class="fa-solid fa-arrow-right ml-1"></i>';
@@ -1493,105 +1495,61 @@
                 : `<div class="text-center py-12 border border-dashed border-line rounded-lg text-mute"><i class="fa-regular fa-comments text-3xl mb-3 block"></i>Nenhum post ${muralGerente === 'todos' ? 'ainda' : 'no mural do ' + esc(muralGerente)}.</div>`;
         }
 
-        // ----- Supabase (versão publicada como site) -----
-        let servidor = null; // 'claude' | 'supabase' | null
-        let sb = null;
+        // ----- Firebase (versão publicada como site) -----
+        let servidor = null; // 'claude' | 'firebase' | null
+        let fb = null;
 
-        function erroSb(e) {
-            const code = e && (e.code === '42501' || /row-level security|permission/i.test(e.message || '')) ? 'invalid_argument' : 'unavailable';
+        function erroFb(e) {
+            const c = e && e.code;
+            const code = c === 'permission-denied' ? 'invalid_argument' : c === 'resource-exhausted' ? 'quota_exceeded' : 'unavailable';
             return { code, message: (e && e.message) || 'erro' };
         }
 
-        async function atualizarIdentidadeSb() {
-            const { data } = await sb.auth.getSession();
-            const sessao = data && data.session;
-            meuId = sessao ? sessao.user.id : null;
+        function esperarAuth() {
+            return new Promise(res => { const off = fb.auth().onAuthStateChanged(u => { off(); res(u); }); });
+        }
+
+        async function atualizarIdentidadeFb() {
+            const u = fb.auth().currentUser;
+            meuId = u ? u.uid : null;
             souDono = null;
-            if (sessao && !sessao.user.is_anonymous) {
-                const { data: adm, error } = await sb.rpc('is_admin');
-                souDono = !error && adm === true;
+            if (u && !u.isAnonymous) {
+                try { const d = await fb.firestore().doc('admins/' + u.uid).get(); souDono = d.exists; }
+                catch (e) { souDono = false; }
             }
             podeEscrever = true;
         }
 
         async function garantirSessaoTorcedor() {
-            const { data } = await sb.auth.getSession();
-            if (data && data.session) { meuId = data.session.user.id; return; }
-            const { data: anon, error } = await sb.auth.signInAnonymously();
-            if (error) throw error;
-            meuId = anon.user.id;
+            const u = fb.auth().currentUser;
+            if (u) { meuId = u.uid; return; }
+            const cred = await fb.auth().signInAnonymously();
+            meuId = cred.user.uid;
         }
 
-        async function conectarSupabase() {
-            const cfg = window.SUPABASE_CONFIG;
-            sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
-            await atualizarIdentidadeSb();
-
-            const snapDoc = (id, dados) => ({ id, exists: !!dados, data: () => dados ? JSON.parse(JSON.stringify(dados)) : undefined, metadata: { fromCache: false, hasPendingWrites: false } });
-
-            function refCamp() {
-                return {
-                    async set(obj) {
-                        const { error } = await sb.from('campeonato').upsert({ id: 'estado', dados: obj, atualizado_em: new Date().toISOString() });
-                        if (error) throw erroSb(error);
-                    },
-                    onSnapshot(next, onErr) {
-                        sb.from('campeonato').select('dados').eq('id', 'estado').maybeSingle().then(({ data, error }) => {
-                            if (error) { onErr && onErr(erroSb(error)); return; }
-                            next(snapDoc('estado', data && data.dados));
-                        });
-                        const canal = sb.channel('camp').on('postgres_changes', { event: '*', schema: 'public', table: 'campeonato' }, payload => {
-                            if (payload.new && payload.new.id === 'estado') next(snapDoc('estado', payload.new.dados));
-                        }).subscribe();
-                        return () => sb.removeChannel(canal);
-                    }
-                };
-            }
-            function refTorcedor(id) {
-                return {
-                    async set(obj) {
-                        const { error } = await sb.from('torcedores').upsert({ id, nome: obj.nome, turma: obj.turma, posts: obj.posts || [], denuncias: obj.denuncias || [], atualizado_em: new Date().toISOString() });
-                        if (error) throw erroSb(error);
-                    },
-                    async update(parcial) {
-                        const { data, error } = await sb.from('torcedores').update({ ...parcial, atualizado_em: new Date().toISOString() }).eq('id', id).select('id');
-                        if (error) throw erroSb(error);
-                        if (!data || !data.length) throw { code: 'invalid_argument', message: 'sem permissão' };
-                    }
-                };
-            }
-            function colTorcida() {
-                return {
-                    onSnapshot(next, onErr) {
-                        let t = null;
-                        const carregar = async () => {
-                            const { data, error } = await sb.from('torcedores').select('id,nome,turma,posts,denuncias');
-                            if (error) { onErr && onErr(erroSb(error)); return; }
-                            const docs = (data || []).map(row => snapDoc(row.id, row));
-                            next({ docs, size: docs.length, empty: !docs.length, metadata: { fromCache: false, hasPendingWrites: false }, docChanges: () => [] });
-                        };
-                        carregar();
-                        const canal = sb.channel('torcida').on('postgres_changes', { event: '*', schema: 'public', table: 'torcedores' }, () => {
-                            clearTimeout(t); t = setTimeout(carregar, 250);
-                        }).subscribe();
-                        return () => sb.removeChannel(canal);
-                    }
-                };
-            }
+        async function conectarFirebase() {
+            fb = firebase.initializeApp(window.FIREBASE_CONFIG);
+            const fs = fb.firestore();
+            await esperarAuth();
+            await atualizarIdentidadeFb();
+            const aoErro = onErr => err => { onErr && onErr(erroFb(err)); };
             return {
                 doc(path) {
-                    if (path === 'camp/estado') return refCamp();
-                    if (path.startsWith('torcida/')) return refTorcedor(path.slice(8));
-                    throw new TypeError('caminho desconhecido: ' + path);
+                    const ref = fs.doc(path);
+                    return {
+                        set: obj => ref.set(obj).catch(e => { throw erroFb(e); }),
+                        update: parcial => ref.update(parcial).catch(e => { throw erroFb(e); }),
+                        onSnapshot: (next, onErr) => ref.onSnapshot(next, aoErro(onErr))
+                    };
                 },
                 collection(path) {
-                    if (path === 'torcida') return colTorcida();
-                    throw new TypeError('coleção desconhecida: ' + path);
+                    const col = fs.collection(path);
+                    return { onSnapshot: (next, onErr) => col.onSnapshot(next, aoErro(onErr)) };
                 }
             };
         }
 
-        // Login do gerenciador (Supabase)
+        // Login do gerenciador (Firebase)
         function abrirLogin() {
             document.getElementById('login-erro').textContent = '';
             document.getElementById('modal-login').classList.remove('hidden');
@@ -1602,13 +1560,13 @@
             e.preventDefault();
             const erro = document.getElementById('login-erro');
             const btn = document.getElementById('login-btn');
-            if (!sb) { erro.textContent = 'O site está sem conexão com o servidor.'; return; }
+            if (!fb) { erro.textContent = 'O site está sem conexão com o servidor.'; return; }
             btn.disabled = true; erro.textContent = '';
             try {
-                const { error } = await sb.auth.signInWithPassword({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-senha').value });
-                if (error) { erro.textContent = 'E-mail ou senha incorretos.'; return; }
-                await atualizarIdentidadeSb();
-                if (!souDono) { erro.textContent = 'Esta conta não é a do gerenciador do campeonato.'; await sb.auth.signOut(); meuId = null; souDono = null; return; }
+                try { await fb.auth().signInWithEmailAndPassword(document.getElementById('login-email').value.trim(), document.getElementById('login-senha').value); }
+                catch (err) { erro.textContent = 'E-mail ou senha incorretos.'; return; }
+                await atualizarIdentidadeFb();
+                if (!souDono) { erro.textContent = 'Esta conta não é a do gerenciador do campeonato.'; await fb.auth().signOut(); meuId = null; souDono = null; return; }
                 document.getElementById('login-senha').value = '';
                 fecharLogin();
                 entrarGerente();
@@ -1625,7 +1583,7 @@
                 aviso.classList.remove('hidden');
             }, 10000);
             try {
-                if (supabaseConfigurado()) { servidor = 'supabase'; db = await conectarSupabase(); }
+                if (firebaseConfigurado()) { servidor = 'firebase'; db = await conectarFirebase(); }
                 else {
                 if (!window.claude || !window.claude.use) throw new Error('sem runtime');
                 servidor = 'claude';
@@ -1681,8 +1639,8 @@
 
             atualizarTudo();
             // Se entrou como gerente e não é o dono, volta para o início
-            if (modo === 'gerente' && (souDono === false || (servidor === 'supabase' && !souDono))) voltarInicio();
-            if (servidor === 'supabase' && souDono) { let m = ''; try { m = localStorage.getItem('interclasse_modo'); } catch(e) {} if (m === 'gerente') entrarGerente(); }
+            if (modo === 'gerente' && (souDono === false || (servidor === 'firebase' && !souDono))) voltarInicio();
+            if (servidor === 'firebase' && souDono) { let m = ''; try { m = localStorage.getItem('interclasse_modo'); } catch(e) {} if (m === 'gerente') entrarGerente(); }
             if (modo === 'torcida' && meuId && !meuPerfil()) setTimeout(() => { if (modo === 'torcida' && !meuPerfil()) abrirPerfilTorcedor(); }, 1500);
         }
 
@@ -1694,7 +1652,7 @@
             let m = 'inicio';
             try { m = localStorage.getItem('interclasse_modo') || 'inicio'; } catch(e) {}
             atualizarTudo();
-            if (m === 'gerente' && !supabaseConfigurado()) entrarGerente();
+            if (m === 'gerente' && !firebaseConfigurado()) entrarGerente();
             else if (m === 'gerente') mostrar('tela-inicio');
             else if (m === 'torcida') entrarTorcedor();
             else mostrar('tela-inicio');

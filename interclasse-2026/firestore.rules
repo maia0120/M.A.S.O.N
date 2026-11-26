@@ -1,0 +1,41 @@
+rules_version = '2';
+// Interclasse 2026 — regras do Firestore.
+// Cole este arquivo inteiro em Firebase Console → Firestore Database → Regras → Publicar.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Gerenciador = quem tem um documento admins/{UID}
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Campeonato: todo mundo lê; só o gerenciador grava
+    match /camp/{id} {
+      allow read: if true;
+      allow write: if id == 'estado' && isAdmin();
+    }
+
+    // Admins: cada um só vê a própria linha; ninguém grava pelo site
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // Torcida: mural público; cada torcedor cria/edita só o próprio registro;
+    // o gerenciador pode editar (apagar posts) e excluir qualquer um
+    match /torcida/{uid} {
+      function valido(d) {
+        return d.keys().hasOnly(['nome', 'turma', 'posts', 'denuncias'])
+          && d.nome is string && d.nome.size() >= 1 && d.nome.size() <= 40
+          && d.turma is string && d.turma.size() >= 1 && d.turma.size() <= 60
+          && d.posts is list && d.posts.size() <= 150
+          && d.denuncias is list && d.denuncias.size() <= 100;
+      }
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid && valido(request.resource.data);
+      allow update: if request.auth != null && (request.auth.uid == uid || isAdmin()) && valido(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
