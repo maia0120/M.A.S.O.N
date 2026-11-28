@@ -75,7 +75,23 @@ Entrevista de definição (Prompt 02), 27/11/2026. Cada decisão foi escolhida p
 - **D38.** A conversa tem uma **máquina de estados única** (`src/voice/conversation.ts`): IDLE, LISTENING, TRANSCRIBING, PROCESSING, RESPONDING, SPEAKING, WAITING_FOR_USER e ERROR. Cada turno tem um número de sessão, para que encerrar descarte qualquer resultado pendente. Há tempos-limite (escuta 30 s, processamento 15 s, fala proporcional ao texto). O orbe mostra o estado real, inclusive transcrevendo, aguardando e erro.
 - **D39.** **Diagnóstico de voz** em Configurações: as últimas 40 falas, com o texto ouvido, as alternativas, a confiança, a intenção entendida e os tempos. Serve para separar erro de transcrição de erro de interpretação.
 
+## Compreensão de linguagem 0.7.0 (27/11/2026)
+- **D40.** **Análise da frase por papéis** (`src/assistant/intent/frame.ts`): ação, objeto, novidade × algo que já existe, negação, pergunta e assunto. Ela gera evidências por intenção, junto com os exemplos e o modelo de significados. Nenhuma palavra decide sozinha: "quero" não é negação, "ideia nova" não é listar e "aquela ideia" não é registrar.
+- **D41.** **Ideia em construção** (escolha do Gabriel: "salvar logo e ir completando"). A ideia é criada assim que há um assunto. Cada mensagem seguinte entra na descrição original, nas palavras dele, e é separada em tipo, problema, público, funcionalidades, monetização e observações para montar a descrição organizada. O MASON responde curto ("Anotado."), pergunta de vez em quando pelo que falta (no máximo 3 perguntas por ideia, sem repetir) e a resposta preenche a parte perguntada. "É isso" mostra a organização e oferece a análise. Mudar de assunto salva a ideia e atende o pedido novo.
+- **D42.** **Política de perguntas:** na dúvida, uma pergunta sobre o palpite principal ("Você está começando uma ideia nova, certo?"). "A ou B?" fica só para empate real. Referências vagas e exclusões continuam sendo confirmadas (D11).
+- **D43.** **Intenções novas:** transformar ideia em projeto (sempre com confirmação antes de criar), preparar o documento para o Claude (salvo em Desenvolvimento; o envio continua manual), terminar a explicação e anotar uma informação. Na base revisada pelo Gabriel (D26), o exemplo "tem ideia nova?" saiu de "listar ideias", porque fazia "quero colocar uma ideia nova…" virar listagem. Também entraram exemplos novos em ajuda, papo e confirmar.
+- **D44.** **Aprendizado com origem:** só entra uma frase cuja intenção o Gabriel confirmou ("sim" à pergunta ou escolha de uma opção). Ela aparece em Memória → "O que aprendi", com a data e a origem, e pode ser removida. Um "não" nunca é aprendido.
+
 ## Histórico de execução
 - **Fase 0 (27/11/2026):** o Gemini foi removido (cliente, proxy, configuração de chave, ciclo do agente). O executor de ferramentas passou para `src/assistant/core/executor.ts`. O chat responde que o núcleo chega na Fase 1. A base inicial foi rascunhada (`src/assistant/knowledge/seed.ts`) e enviada para revisão no documento "MASON — Base inicial de conhecimento (revisão)".
 - **Fase 1 (27/11/2026):** núcleo próprio em funcionamento: normalização, classificador léxico com sinais fortes, modelo de significados (transformers.js, carregado no aparelho, com o léxico como reserva), contexto com perguntas pendentes, respostas a partir dos modelos revisados e análise crítica por critérios. Comportamentos D2, D3, D4, D4a, D7 e D11 cobertos por testes de conversa. Compreensão: 30 de 40 frases novas na primeira medição; 70 de 72 (97%) depois dos ajustes técnicos, só com o léxico. O desempenho do modelo de significados ainda precisa ser medido no aparelho.
 - **P0 da auditoria (27/11/2026):** D35–D39 implementadas. 8 testes novos da máquina de estados (modos, não reabrir, não ouvir durante a fala, encerrar descarta, erro e retomada, interromper), 31 testes no total. O reconhecimento nativo ainda precisa ser validado no aparelho.
+- **Compreensão 0.7.0 (27/11/2026):** D40–D44. As três bases de linguagem (278 frases) foram medidas só com o léxico, porque o modelo de significados não roda nos testes:
+
+  | Base | Antes | Depois |
+  |---|---|---|
+  | Desenvolvimento (120, usada para ajustar) | 54% | 100% |
+  | Validação (68) | 63% | 97% |
+  | Independente (90, escrita antes e não usada para ajustar) | 54% | 97% |
+
+  41 testes, incluindo 10 conversas completas novas. Os 3 erros que restam no conjunto independente ficaram registrados, sem ajuste específico.

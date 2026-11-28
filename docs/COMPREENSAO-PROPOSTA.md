@@ -90,3 +90,23 @@ normalização → classificador (n-gramas contra ~150 exemplos + sinais fortes 
 5. Nova política de perguntas.
 6. Aprendizado com origem (tela Memória).
 7. Medir no conjunto independente, registrar decisões e versão 0.7.0.
+
+## 8. Resultado (0.7.0)
+O que foi feito: as etapas 1 a 7. Ficaram de fora a tolerância a erros de digitação por distância de edição (por enquanto só o mapa de abreviações) e a separação automática de várias intenções numa só mensagem.
+
+| Base | Linha de base | 0.7.0 |
+|---|---|---|
+| Desenvolvimento (120) | 54% | 100% |
+| Validação (68) | 63% | 97% |
+| Independente (90) | 54% | **97%** |
+| Avaliação antiga (76, já vista antes) | 80% | 96% |
+
+**Honestidade sobre os números:**
+- As bases foram escritas pelo Claude. O conjunto independente foi escrito antes de qualquer ajuste e só foi medido no fim, mas tem o mesmo "jeito de escrever" de quem fez as regras. Com frases reais do Gabriel, o acerto deve ser menor.
+- Por isso o Diagnóstico de voz e a tela "O que aprendi" importam: são o jeito de medir no uso real.
+- Os números são só do léxico com a análise da frase. No aparelho, o modelo de significados entra junto; espera-se que ajude, mas isso ainda não foi medido.
+
+**Erros que restam no conjunto independente (mantidos sem ajuste):**
+- "na ideia de cursos coloca que vai ter certificado" → registrar (o certo: complementar);
+- "peraí que ainda não acabei" → corrigir (o certo: continuar);
+- "eai mason" → nenhuma (o certo: cumprimentar).

@@ -18,6 +18,12 @@ const DEMONSTRATIVE = /\b(essa|esse|nessa|nesse|dessa|desse|ela|isso)\b/;
 
 /** Resolve "aquela ideia do comparador", "a ideia de semana passada", "essa"... (decisões D10 e D11). */
 export async function resolveIdea(text: string): Promise<IdeaReference> {
+  // Pedido vindo de um botão do app: "a ideia "X" (id abc123)" aponta direto para o registro.
+  const byId = text.match(/\(id ([\w-]+)\)/);
+  if (byId) {
+    const idea = (await listIdeas({ includeArchived: true })).find((i) => i.id === byId[1]);
+    if (idea) return { ideas: [idea], fromFocus: true, hadClue: true };
+  }
   const f = fold(text);
   const subject = subjectOf(text);
   const window = findTimeWindow(text);
@@ -40,13 +46,14 @@ export async function resolveIdea(text: string): Promise<IdeaReference> {
       const top = ranked[0].s;
       return { ideas: ranked.filter((x) => x.s >= top - 0.15).map((x) => x.i), fromFocus: false, hadClue: true };
     }
-    if (!window) return { ideas: [], fromFocus: false, hadClue: true };
   }
+  // "essa ideia" aponta para a ideia em foco (mesmo que a frase tenha outras palavras, como "pro Claude")
   const focus = recentFocus();
   if (!window && focus && DEMONSTRATIVE.test(f)) {
     const idea = ideas.find((i) => i.id === focus);
     if (idea) return { ideas: [idea], fromFocus: true, hadClue: true };
   }
+  if (subject && !window) return { ideas: [], fromFocus: false, hadClue: true };
   if (window) return { ideas: ideas.slice(0, 5), fromFocus: false, hadClue: true };
   return { ideas: [], fromFocus: false, hadClue: false };
 }

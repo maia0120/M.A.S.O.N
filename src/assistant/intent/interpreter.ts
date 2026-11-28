@@ -2,17 +2,21 @@ import { INTENTS } from '../knowledge/seed';
 import { LexicalIndex } from './lexical';
 import { getEncoder, cosine } from './semantic';
 import { normalize, fold, type Normalized } from './normalize';
-import { hasIdeaTrigger } from './entities';
+import { analyzeFrame, penalties, type Frame } from './frame';
 
 export interface IntentScore {
   intent: string;
   score: number;
   lexical: number;
   semantic: number | null;
+  /** Evidência da análise da frase (ação + objeto + novidade). */
+  frame: number;
+  why: string | null;
 }
 
 export interface Interpretation {
   msg: Normalized;
+  frame: Frame;
   ranked: IntentScore[];
   top: IntentScore | null;
   /** Certeza suficiente para agir sem perguntar. */
@@ -24,21 +28,6 @@ export interface Interpretation {
 /** Limiares — calibrados com os testes de frases novas; revisar com uso real. */
 export const THRESHOLDS = { act: 0.42, minimum: 0.28, ambiguityGap: 0.06 };
 
-/**
- * Sinais fortes: expressões que, quando aparecem, praticamente definem a intenção.
- * Complementam os exemplos (que comparam a frase inteira) em frases longas ou misturadas.
- */
-const STRONG_SIGNALS: Record<string, string[]> = {
-  analisar_ideia: ['analisada', 'pontos fracos', 'presta', 'o que voce acha', 'que voce acha', 'sua opiniao', 'tua opiniao', 'quais os riscos', 'quais riscos', 'vale a pena', 'da certo', 'analisa', 'analisar', 'critica'],
-  aprovar_ideia: ['aprova', 'aprovar', 'aprovada', 'vai para frente', 'bora tocar'],
-  arquivar_ideia: ['arquiva', 'arquivar', 'deixa essa de lado', 'nao vai rolar'],
-  complementar_ideia: ['acrescenta', 'complementa', 'adiciona isso', 'inclui isso', 'coloca tambem'],
-  abrir_area: ['abre o', 'abre a', 'abre os', 'abre as', 'me leva', 'vai para', 'volta para'],
-  corrigir: ['me enganei', 'na real', 'na verdade', 'falei errado', 'pensei melhor', 'me expressei mal'],
-  agradecer: ['valeu', 'obrigado', 'brigado', 'brigadao'],
-  status_projeto: ['como esta o projeto', 'como anda o projeto', 'em que pe'],
-  ver_ideia: ['lembra da', 'lembra daquela', 'lembra daquele', 'ligado naquela', 'como era aquela', 'abre a ideia', 'me mostra a ideia', 'puxa aquela'],
-};
 const GREETING = /^(e ai|opa|fala|bom dia|boa tarde|boa noite|salve|oi|ola)\b/;
 /** Palavras que não mudam o pedido em nenhuma intenção. */
 const NEUTRAL = new Set(['mason', 'mano', 'cara', 'velho']);
@@ -87,34 +76,37 @@ export async function interpret(raw: string): Promise<Interpretation> {
   const msg = normalize(raw);
   const ct = classText(msg.text);
   const lex = lexical!.score(ct || msg.text);
-  const padded = ` ${ct} `;
-  const strong = new Set<string>();
-  for (const [intent, phrases] of Object.entries(STRONG_SIGNALS)) {
-    if (phrases.some((p) => padded.includes(` ${p} `))) {
-      strong.add(intent);
-      lex.set(intent, Math.max(lex.get(intent) ?? 0, 0.85));
-    }
-  }
-  if (hasIdeaTrigger(raw)) strong.add('registrar_ideia');
-  if (hasIdeaTrigger(raw)) lex.set('registrar_ideia', Math.max(lex.get('registrar_ideia') ?? 0, 0.9));
   if (GREETING.test(ct) && ct.split(' ').length <= 5) lex.set('cumprimentar', Math.max(lex.get('cumprimentar') ?? 0, 0.95));
+  const frame = analyzeFrame(raw);
+  const pen = penalties(frame);
+  // Frase idêntica a uma que o Gabriel já confirmou: a confirmação dele vale mais que qualquer regra.
+  const learnedHit = extraExamples.find((e) => classText(fold(e.text)) === (ct || msg.text));
   const sem = await semanticScores(raw).catch(() => null);
   const ranked: IntentScore[] = INTENTS.map((i) => {
-    const l = lex.get(i.id) ?? 0;
+    const p = pen.get(i.id) ?? 1;
+    const l = (lex.get(i.id) ?? 0) * p;
     const s = sem ? sem.get(i.id) ?? 0 : null;
-    // Com o modelo: combina sentido e forma; a forma decide sozinha quando é muito clara.
-    // Cossenos do MiniLM para paráfrases ficam ~0,55–0,85; abaixo de 0,35 é ruído.
-    const semNorm = s === null ? null : Math.max(0, (s - 0.35) / 0.5);
-    const score = semNorm === null ? l : Math.max(l, 0.6 * semNorm + 0.4 * l);
-    return { intent: i.id, score, lexical: l, semantic: s };
+    // Modelo de significados: cossenos de paráfrases ficam ~0,55–0,85; abaixo de 0,35 é ruído.
+    const semNorm = s === null ? null : Math.max(0, (s - 0.35) / 0.5) * p;
+    const fe = frame.evidence.get(i.id);
+    const fscore = fe?.score ?? 0;
+    const examples = semNorm === null ? l : Math.max(l, 0.6 * semNorm + 0.4 * l);
+    // A análise da frase e os exemplos se reforçam quando concordam
+    let score = Math.min(1, Math.max(fscore, examples) + (fscore > 0 && examples > 0.3 ? 0.05 : 0));
+    let why = fe?.why ?? null;
+    if (learnedHit) {
+      if (learnedHit.intent === i.id) { score = 0.97; why = 'frase confirmada antes pelo Gabriel'; }
+      else score = Math.min(score, 0.5);
+    }
+    return { intent: i.id, score, lexical: l, semantic: s, frame: fscore, why };
   }).sort((a, b) => b.score - a.score);
 
   const top = ranked[0] && ranked[0].score >= THRESHOLDS.minimum ? ranked[0] : null;
   const second = ranked[1];
-  // Um sinal forte só "empata" com outro sinal forte.
-  const strongWins = Boolean(top && strong.has(top.intent) && second && !strong.has(second.intent));
+  // Evidência estrutural forte só "empata" com outra evidência estrutural forte.
+  const strongWins = Boolean(top && (top.frame >= 0.8 || top.score >= 0.97) && second && second.frame < 0.8);
   const ambiguous = Boolean(top && second && !strongWins && top.score - second.score < THRESHOLDS.ambiguityGap && second.score >= THRESHOLDS.minimum && !compatible(top.intent, second.intent));
-  return { msg, ranked, top, confident: Boolean(top && top.score >= THRESHOLDS.act && !ambiguous), ambiguous };
+  return { msg, frame, ranked, top, confident: Boolean(top && top.score >= THRESHOLDS.act && !ambiguous), ambiguous };
 }
 
 /** Pares que não exigem pergunta: as duas leituras levam à mesma resposta. */

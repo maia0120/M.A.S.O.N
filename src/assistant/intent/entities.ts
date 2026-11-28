@@ -108,6 +108,16 @@ export function ideaContent(raw: string): string {
   return text.trim();
 }
 
+/** Tira o pedido da frente ("quero colocar uma ideia nova de um app…" → "um app…"). */
+export function stripRequest(content: string): string {
+  return content
+    .replace(/^(eu )?(quero|queria|vou|preciso|gostaria de|to querendo|tô querendo|estou querendo|pensei em|to pensando em|tô pensando em|estou pensando em)\s+/i, '')
+    .replace(/^(colocar|registrar|anotar|salvar|guardar|cadastrar|adicionar|botar|te contar|contar|te explicar|explicar|te passar|passar|lançar|lancar)\s+/i, '')
+    .replace(/^(uma |a )?(nova )?(ideia|proposta|sacada)( nova)?\s*(de |do |da |sobre |para |pra |:|,)?\s*/i, '')
+    .replace(/^(de|do|da|sobre)\s+(?=(um|uma|o|a)\s)/i, '')
+    .trim() || content.trim();
+}
+
 /** Título curto a partir do conteúdo, sem inventar nada. */
 export function titleFrom(content: string): string {
   let t = content

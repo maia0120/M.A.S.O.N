@@ -18,16 +18,19 @@ test('cumprimenta pelo nome', async () => {
   assert.match(await say('Bom dia, Mason'), /Gabriel/);
 });
 
-test('registra ideia com as palavras do Gabriel e oferece análise', async () => {
+test('registra ideia na hora, com as palavras do Gabriel, e organiza ao terminar', async () => {
   const fala = 'Mano, tive uma ideia. Quero criar um site onde as pessoas consigam comparar preços de produtos de várias lojas.';
   const r = await sendToMason(fala);
   assert.equal(r.actions[0]?.tool, 'create_idea');
   assert.equal(r.actions[0]?.ok, true);
-  assert.match(r.message.content, /Registrei a ideia/);
+  assert.match(r.message.content, /^Anotei: /);
   const [idea] = await listIdeas();
   assert.equal(idea.original_description, fala);
   assert.equal(idea.category, 'site');
-  assert.match(idea.organized_description!, /Proposta: Quero criar um site/);
+  assert.match(idea.organized_description!, /Proposta: .*site onde as pessoas/);
+  const fim = await say('é isso');
+  assert.match(fim, /^Pronto\. Organizei/);
+  assert.match(fim, /análise agora\?$/);
 });
 
 test('aceita a análise: crítica por critérios, salva separada como sugestão', async () => {
@@ -40,9 +43,12 @@ test('aceita a análise: crítica por critérios, salva separada como sugestão'
 });
 
 test('explicação em várias mensagens vira uma ideia só', async () => {
-  assert.match(await say('seguinte, tive uma ideia...'), /Pode continuar/);
+  assert.match(await say('seguinte, tive uma ideia...'), /Pode contar/);
   const r = await say('um app pra barbearia agendar horário pelo celular');
-  assert.match(r, /Registrei a ideia/);
+  assert.match(r, /^Anotei: /);
+  assert.match(await say('o público seria donos de barbearia pequena'), /Anot|Certo|Entendi/);
+  const fim = await say('é isso');
+  assert.match(fim, /Público: Donos de barbearia pequena/);
   const ideas = await listIdeas();
   assert.equal(ideas.length, 2);
   const barber = ideas.find((i) => /barbearia/.test(i.title))!;

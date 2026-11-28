@@ -3,10 +3,12 @@ import { useData, Empty, PageHeader, StatusBadge } from '../components/ui';
 import { listMemories, updateMemory, deleteMemory, remember } from '../../memory/repository/memoryRepo';
 import { listExpressions, saveExpression, deleteExpression, listCorrections, setCorrectionAuto, deleteCorrection, recordCorrection } from '../../memory/preferences/profileRepo';
 import { formatDate } from '../../core/util';
+import { listLearned, forgetLearned } from '../../assistant/intent/learning';
+import { intentLabel } from '../../assistant/intent/interpreter';
 import { MEMORY_SOURCES, MEMORY_KINDS, label, type Memory, type MemorySource, type MemoryKind } from '../../core/types';
 
 export function MemoryPage() {
-  const [tab, setTab] = useState<'memories' | 'expressions' | 'voice'>('memories');
+  const [tab, setTab] = useState<'memories' | 'expressions' | 'voice' | 'learned'>('memories');
   return (
     <>
       <PageHeader title="Memória" subtitle="Tudo o que o MASON guarda sobre você, com a origem de cada informação. Você pode corrigir ou apagar." />
@@ -14,10 +16,12 @@ export function MemoryPage() {
         <button className={`tab ${tab === 'memories' ? 'active' : ''}`} onClick={() => setTab('memories')}>Memórias</button>
         <button className={`tab ${tab === 'expressions' ? 'active' : ''}`} onClick={() => setTab('expressions')}>Meu jeito de falar</button>
         <button className={`tab ${tab === 'voice' ? 'active' : ''}`} onClick={() => setTab('voice')}>Correções de voz</button>
+        <button className={`tab ${tab === 'learned' ? 'active' : ''}`} onClick={() => setTab('learned')}>O que aprendi</button>
       </div>
       {tab === 'memories' && <Memories />}
       {tab === 'expressions' && <Expressions />}
       {tab === 'voice' && <Corrections />}
+      {tab === 'learned' && <Learned />}
     </>
   );
 }
@@ -114,6 +118,25 @@ function Corrections() {
               <label className="small row" style={{ gap: 4 }}><input type="checkbox" checked={Boolean(c.auto_apply)} onChange={(e) => setCorrectionAuto(c.id, e.target.checked)} /> automática</label>
               <button className="btn small danger" onClick={() => deleteCorrection(c.id)}>Remover</button>
             </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Frases cuja intenção o Gabriel confirmou (0.7.0). Só entram depois de um "sim" ou de uma escolha dele. */
+function Learned() {
+  const { data, reload } = useData(listLearned, ['learned']);
+  return (
+    <div className="card stack">
+      <p className="small muted">Quando eu pergunto se entendi certo e você confirma, guardo a frase e o que ela significava. Da próxima vez entendo direto. Nada entra aqui sem a sua confirmação. Se algo estiver errado, remova.</p>
+      {data?.length === 0 && <Empty>Ainda não aprendi nenhuma frase.</Empty>}
+      <div className="list">
+        {data?.map((l) => (
+          <div key={l.id} className="list-item" style={{ cursor: 'default' }}>
+            <span>“{l.text}” → <strong>{intentLabel(l.intent)}</strong> <span className="small muted">({l.origin === 'confirmou_pergunta' ? 'você confirmou' : 'você escolheu'}, {formatDate(l.at)})</span></span>
+            <button className="btn small danger" onClick={async () => { await forgetLearned(l.id); reload(); }}>Remover</button>
           </div>
         ))}
       </div>

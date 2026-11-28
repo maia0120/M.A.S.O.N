@@ -2,9 +2,15 @@
  * Gerenciador de contexto: o assunto em foco e a pergunta que o MASON está esperando ver respondida.
  * Vive na memória enquanto o app está aberto.
  */
-export type PendingThen = 'ver' | 'analisar' | 'aprovar' | 'arquivar' | 'complementar';
+import type { IdeaDraft } from './ideaDraft';
+
+export type PendingThen = 'ver' | 'analisar' | 'aprovar' | 'arquivar' | 'complementar' | 'projeto' | 'preparar';
 
 export type Pending =
+  /** 0.7.0: perguntou se entendeu certo ("Você está começando uma ideia nova, certo?"). */
+  | { kind: 'confirm_intent'; intent: string; raw: string; alt: string | null }
+  /** Confirmação antes de criar um projeto a partir de uma ideia. */
+  | { kind: 'confirm_project'; ideaId: string }
   /** D7: mensagem confusa, perguntou entre duas leituras. */
   | { kind: 'clarify'; options: { label: string; intent: string }[]; raw: string }
   /** D11: confirma a referência antes de usar. */
@@ -28,13 +34,13 @@ export interface DialogState {
   focusIdeaId: string | null;
   focusAt: number;
   pending: Pending | null;
-  /** Explicação de ideia em andamento (várias mensagens). */
-  collecting: { raws: string[]; startedAt: number } | null;
+  /** Ideia em construção: já salva e sendo completada a cada mensagem (0.7.0). */
+  draft: IdeaDraft | null;
   /** Complementos seguidos à ideia em foco ("e tem mais..."). */
   appendingTo: string | null;
 }
 
-export const state: DialogState = { focusIdeaId: null, focusAt: 0, pending: null, collecting: null, appendingTo: null };
+export const state: DialogState = { focusIdeaId: null, focusAt: 0, pending: null, draft: null, appendingTo: null };
 
 export function setFocus(ideaId: string | null) {
   state.focusIdeaId = ideaId;
@@ -50,6 +56,6 @@ export function resetDialog() {
   state.focusIdeaId = null;
   state.focusAt = 0;
   state.pending = null;
-  state.collecting = null;
+  state.draft = null;
   state.appendingTo = null;
 }

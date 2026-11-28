@@ -9,7 +9,7 @@
 export interface IntentSeed {
   id: string;
   label: string;
-  group: 'conversa' | 'ideias' | 'busca' | 'navegacao';
+  group: 'conversa' | 'ideias' | 'busca' | 'navegacao' | 'projetos';
   examples: string[];
 }
 
@@ -25,7 +25,7 @@ export const INTENTS: IntentSeed[] = [
   },
   {
     id: 'confirmar', label: 'Confirmar (sim)', group: 'conversa',
-    examples: ['sim', 'isso', 'isso mesmo', 'exatamente', 'pode ser', 'pode', 'manda ver', 'beleza', 'fechou', 'confirmo', 'é essa mesma', 'pode fazer', 'tá certo', 'positivo'],
+    examples: ['sim', 'isso', 'isso mesmo', 'exatamente', 'pode ser', 'pode', 'manda ver', 'beleza', 'fechou', 'confirmo', 'é essa mesma', 'pode fazer', 'tá certo', 'positivo', 'claro', 'pode crer', 'com certeza'],
   },
   {
     id: 'negar', label: 'Negar (não)', group: 'conversa',
@@ -45,11 +45,13 @@ export const INTENTS: IntentSeed[] = [
   },
   {
     id: 'ajuda', label: 'Perguntar o que ele faz', group: 'conversa',
-    examples: ['o que você faz?', 'como você funciona?', 'me ajuda', 'quais comandos você entende?', 'o que dá pra fazer aqui?', 'tô perdido'],
+    examples: ['o que você faz?', 'como você funciona?', 'me ajuda', 'quais comandos você entende?', 'o que dá pra fazer aqui?', 'tô perdido',
+      'me explica como te usar', 'quais são suas funções?', 'não sei usar isso aqui', 'como eu uso você?'],
   },
   {
     id: 'papo', label: 'Papo casual', group: 'conversa',
-    examples: ['como você tá?', 'tudo bem contigo?', 'tá aí?', 'dia puxado hoje', 'tô cansado', 'bora trabalhar', 'que dia, hein'],
+    examples: ['como você tá?', 'tudo bem contigo?', 'tá aí?', 'dia puxado hoje', 'tô cansado', 'bora trabalhar', 'que dia, hein',
+      'como foi teu dia?', 'tô morto de sono', 'hoje foi corrido', 'tudo certo por aí?'],
   },
 
   /* ---------------- Ideias ---------------- */
@@ -80,7 +82,7 @@ export const INTENTS: IntentSeed[] = [
     id: 'listar_ideias', label: 'Listar ideias', group: 'ideias',
     examples: [
       'quais ideias eu tenho?', 'mostra minhas ideias', 'lista as ideias', 'o que tem na central de ideias?',
-      'quais ideias tão paradas?', 'ideias aprovadas', 'tem ideia nova?',
+      'quais ideias tão paradas?', 'ideias aprovadas', 'me mostra minhas ideias',
     ],
   },
   {
@@ -110,6 +112,24 @@ export const INTENTS: IntentSeed[] = [
   {
     id: 'status_projeto', label: 'Perguntar como está um projeto', group: 'busca',
     examples: ['como é que tá aquele projeto mesmo?', 'em que pé tá o projeto', 'como anda o projeto da agenda?', 'o que falta no projeto', 'resumo do projeto'],
+  },
+
+  /* ---------------- Projetos e desenvolvimento (0.7.0) ---------------- */
+  {
+    id: 'criar_projeto_de_ideia', label: 'Transformar ideia em projeto', group: 'projetos',
+    examples: ['quero criar um projeto com aquela ideia', 'transforma essa ideia em projeto', 'vamos começar a desenvolver', 'quero montar a primeira versão', 'bora desenvolver essa ideia'],
+  },
+  {
+    id: 'preparar_para_claude', label: 'Organizar/preparar para o Claude', group: 'projetos',
+    examples: ['prepara isso para o Claude', 'organiza essa ideia', 'vamos estruturar melhor', 'joga isso pro claude de um jeito que ele entenda', 'como a gente poderia construir?'],
+  },
+  {
+    id: 'encerrar_explicacao', label: 'Terminar a explicação', group: 'conversa',
+    examples: ['é isso', 'pronto', 'terminei', 'é só isso', 'era isso', 'por enquanto é só'],
+  },
+  {
+    id: 'anotar_informacao', label: 'Anotar uma informação', group: 'conversa',
+    examples: ['anota essa informação', 'guarda essa informação', 'lembra que o cliente paga dia 10', 'anota que o prazo é sexta'],
   },
 
   /* ---------------- Navegação ---------------- */
