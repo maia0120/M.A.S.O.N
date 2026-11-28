@@ -20,7 +20,7 @@ jobs:
     env:
       PW: ${{ secrets.SENHA_MASON }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Conferir a senha de assinatura
         run: |
@@ -33,17 +33,27 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
       - name: Instalar dependências
-        run: npm install --no-audit --no-fund
+        run: |
+          if ! npm install --no-audit --no-fund > npm-install.log 2>&1; then
+            # Mostra o motivo como anotação (visível na página do build) e tenta de novo sem checar peers
+            MSG=$(grep -E "npm (error|ERR!)" npm-install.log | grep -vE "A complete log|^npm (error|ERR!) *$" | head -12 | tr '\n' ' ' | cut -c1-900)
+            echo "::warning::npm install falhou na primeira tentativa: $MSG"
+            npm install --no-audit --no-fund --legacy-peer-deps > npm-install-2.log 2>&1 || {
+              MSG2=$(grep -E "npm (error|ERR!)" npm-install-2.log | grep -vE "A complete log|^npm (error|ERR!) *$" | head -12 | tr '\n' ' ' | cut -c1-900)
+              echo "::error::npm install falhou: $MSG2"
+              exit 1
+            }
+          fi
 
       - name: Testes
         run: npm test
