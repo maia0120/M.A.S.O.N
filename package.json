@@ -14,7 +14,8 @@
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
     "model:download": "node scripts/download-model.mjs && node scripts/download-vosk.mjs",
-    "avaliar": "node tests/avaliacao/run.mjs"
+    "avaliar": "node tests/avaliacao/run.mjs",
+    "avaliar:linguagem": "node tests/linguagem/run.mjs"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "^6.0.2",
