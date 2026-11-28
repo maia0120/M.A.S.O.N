@@ -1,0 +1,12 @@
+{
+  "name": "mason-wakeword",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plugin nativo do MASON: palavra de ativação offline (Vosk) em serviço de primeiro plano",
+  "main": "index.js",
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}

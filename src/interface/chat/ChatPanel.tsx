@@ -12,6 +12,7 @@ import { Orb } from '../components/Orb';
 import { Icon } from '../components/ui';
 import { core } from '../components/coreState';
 import { forVoice } from '../../assistant/core/responses';
+import { pauseWake } from '../../voice/wake/wakeWord';
 
 interface UiMessage {
   id: string;
@@ -88,6 +89,16 @@ export function ChatPanel() {
     }
   };
 
+  // Chamado pela voz ("MASON"): abre a conversa e já começa a ouvir
+  useEffect(() => {
+    const onWake = () => {
+      nav.setChat(true);
+      setTimeout(() => void micRef.current(true), 250);
+    };
+    window.addEventListener('mason:wake', onWake);
+    return () => window.removeEventListener('mason:wake', onWake);
+  }, []);
+
   // Botões "Pedir ao MASON" espalhados pelo app
   useEffect(() => {
     const handler = (e: Event) => { nav.setChat(true); void send((e as CustomEvent<string>).detail); };
@@ -102,6 +113,7 @@ export function ChatPanel() {
     }
     speakingRef.current = false;
     await stopSpeaking(); // interromper a fala ao começar a ouvir
+    await pauseWake().catch(() => false); // solta o microfone da palavra de ativação
     core.set('idle');
     setVoiceInfo(null);
     try {

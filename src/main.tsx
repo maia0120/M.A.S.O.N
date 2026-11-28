@@ -12,6 +12,8 @@ openDatabase()
     root.render(<StrictMode><App /></StrictMode>);
     // O modelo de significados carrega em segundo plano; até lá o núcleo usa só o classificador léxico.
     void loadSemanticModel();
+    // Palavra de ativação "MASON" (só no Android)
+    void import('./voice/wake/wakeWord').then((m) => m.initWake()).catch(() => undefined);
   })
   .catch((e: Error) => {
     root.render(

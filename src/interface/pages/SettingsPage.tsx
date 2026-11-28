@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useData, PageHeader, Field, copyText } from '../components/ui';
 import { loadVoicePrefs, saveVoicePrefs, type VoicePrefs } from '../../voice/voicePrefs';
 import { getRecognizer } from '../../voice/speech-recognition/recognizer';
@@ -11,6 +11,7 @@ import { INTEGRATIONS } from '../../integrations';
 import { APP_VERSION } from '../../core/version';
 import { semanticStatus } from '../../assistant/intent/semantic';
 import { core, useReducedMotion } from '../components/coreState';
+import { loadWakePrefs, wakeStatus, wakeSupported, enableWake, disableWake, startCalibration, triggersFromCalibration, saveCalibration, resetCalibration, openOverlaySettings, type WakePrefs, type WakeStatus } from '../../voice/wake/wakeWord';
 
 export function SettingsPage() {
   return (
@@ -18,6 +19,7 @@ export function SettingsPage() {
       <PageHeader title="Configurações" />
       <CoreSettings />
       <VoiceSettings />
+      <WakeSettings />
       <CommunicationSettings />
       <AppearanceSettings />
       <StorageSettings />
@@ -92,6 +94,83 @@ function VoiceSettings() {
       <Field label={`Tom: ${prefs.pitch.toFixed(2)} (menor = mais grave)`}><input type="range" min={0.5} max={1.2} step={0.05} value={prefs.pitch} onChange={(e) => set({ pitch: Number(e.target.value) })} /></Field>
       <Field label={`Velocidade: ${prefs.rate.toFixed(2)}`}><input type="range" min={0.6} max={1.5} step={0.05} value={prefs.rate} onChange={(e) => set({ rate: Number(e.target.value) })} /></Field>
       <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => test(prefs.voiceName)}>Ouvir a voz atual</button>
+    </section>
+  );
+}
+
+function WakeSettings() {
+  const [prefs, setPrefs] = useState<WakePrefs | null>(null);
+  const [st, setSt] = useState<WakeStatus | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [heard, setHeard] = useState<string[] | null>(null);
+  const stopCal = useRef<(() => Promise<void>) | null>(null);
+  const refresh = async () => { setPrefs(await loadWakePrefs()); setSt(await wakeStatus().catch(() => null)); };
+  useEffect(() => { void refresh(); const t = setInterval(() => void wakeStatus().then(setSt).catch(() => undefined), 2000); return () => clearInterval(t); }, []);
+  if (!prefs) return null;
+  if (!wakeSupported()) {
+    return (
+      <section className="card stack">
+        <h2>Ativação por voz</h2>
+        <p className="small muted">Disponível só no app Android.</p>
+      </section>
+    );
+  }
+  const toggle = async () => {
+    setMsg(null);
+    try {
+      if (prefs.enabled) await disableWake(); else await enableWake();
+      await refresh();
+    } catch (e) { setMsg((e as Error).message); }
+  };
+  const calibrate = async () => {
+    setMsg(null);
+    try {
+      const list: string[] = [];
+      setHeard([]);
+      stopCal.current = await startCalibration((t) => { list.push(t); setHeard([...list]); });
+    } catch (e) { setMsg((e as Error).message); setHeard(null); }
+  };
+  const finishCal = async (save: boolean) => {
+    await stopCal.current?.();
+    stopCal.current = null;
+    const trig = triggersFromCalibration(heard ?? []);
+    if (save && trig.length) {
+      await saveCalibration(trig);
+      setMsg(`Calibrado. Vou reconhecer: ${trig.map((t) => `"${t}"`).join(', ')}.`);
+    } else {
+      await resetCalibration();
+      if (save) setMsg('Não ouvi o suficiente. Tente de novo, falando "MASON" com pausas.');
+    }
+    setHeard(null);
+    await refresh();
+  };
+  const state = !st?.running ? 'desligada'
+    : !st.modelReady ? 'preparando o reconhecimento…'
+    : st.listening ? 'ouvindo "MASON"' : 'em pausa (conversa em andamento)';
+  return (
+    <section className="card stack">
+      <h2>Ativação por voz</h2>
+      <p className="small muted">Diga "MASON" e ele abre a conversa, mesmo com o app em segundo plano. Funciona offline. Enquanto estiver ligada, o Android mostra uma notificação fixa, e há gasto de bateria.</p>
+      <p className="small">Situação: <strong>{state}</strong>{st?.error ? ` — ${st.error}` : ''}</p>
+      <div className="row">
+        <button className={`btn ${prefs.enabled ? '' : 'primary'}`} onClick={toggle}>{prefs.enabled ? 'Desligar' : 'Ligar a ativação por voz'}</button>
+        {prefs.enabled && heard === null && <button className="btn" onClick={calibrate}>Calibrar minha voz</button>}
+      </div>
+      {heard !== null && (
+        <div className="notice info stack">
+          <span>Diga <strong>"MASON"</strong> 4 ou 5 vezes, com uma pausa de 2 segundos entre cada uma.</span>
+          <span className="small">Ouvi: {heard.length ? heard.map((h) => `"${h}"`).join(', ') : '…'}</span>
+          <div className="row"><button className="btn primary" onClick={() => finishCal(true)}>Concluir</button><button className="btn" onClick={() => finishCal(false)}>Cancelar</button></div>
+        </div>
+      )}
+      <p className="small muted">{prefs.calibrated ? `Calibrado para: ${prefs.triggers.map((t) => `"${t}"`).join(', ')}.` : 'Ainda não calibrado: usando formas comuns de ouvir "MASON". Calibrar melhora muito o acerto.'}</p>
+      {prefs.enabled && st && !st.canDrawOverlays && (
+        <div className="notice stack">
+          <span>Para abrir sozinho quando você chamar, o Android precisa da permissão "Aparecer sobre outros apps". Sem ela, ele mostra uma notificação para você tocar.</span>
+          <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => openOverlaySettings()}>Abrir permissão</button>
+        </div>
+      )}
+      {msg && <p className="small muted">{msg}</p>}
     </section>
   );
 }

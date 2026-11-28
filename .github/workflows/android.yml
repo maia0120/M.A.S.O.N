@@ -68,6 +68,12 @@ jobs:
           path: public/models
           key: mason-model-paraphrase-multilingual-minilm-v1
 
+      - name: Cache do modelo da palavra de ativação
+        uses: actions/cache@v4
+        with:
+          path: plugins/mason-wakeword/android/src/main/assets/model-pt
+          key: mason-vosk-small-pt-0.3-v1
+
       - name: Modelo de significados e runtime
         run: npm run model:download
 

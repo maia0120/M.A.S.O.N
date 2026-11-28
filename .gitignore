@@ -8,3 +8,5 @@ public/models
 public/ort
 android/
 *.apk
+plugins/mason-wakeword/android/src/main/assets/model-pt
+.vosk-tmp

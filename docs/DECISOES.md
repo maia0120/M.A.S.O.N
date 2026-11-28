@@ -62,6 +62,12 @@ Entrevista de definição (Prompt 02), 27/11/2026. Cada decisão foi escolhida p
 - **D32.** O MASON **responde sempre por voz**, e as conversas continuam salvas em texto. Com **conversa contínua**, depois de responder a uma fala ele volta a ouvir sozinho. Como isso exige enviar a fala direto, a revisão da transcrição passou a vir desligada; ela continua disponível nas Configurações, e corrigir pela conversa ("não, pera…") segue funcionando. Ajuste de D12 e D14.
 - **D33.** Voz: na primeira versão o aparelho usava uma voz feminina. Agora o MASON escolhe sozinho uma voz pt-BR masculina e aplica tom grave (0,8). Nas Configurações, o Gabriel pode testar e escolher qualquer voz instalada.
 
+- **D34.** A **palavra de ativação "MASON"** foi adiantada a pedido do Gabriel, antes da Fase 2. Ela funciona assim:
+  - um plugin nativo próprio (`plugins/mason-wakeword`) roda um serviço em primeiro plano com o Vosk (modelo pequeno de português, ~31 MB, offline);
+  - como "MASON" não está no vocabulário em português, há uma **calibração**: o Gabriel diz a palavra algumas vezes e o app aprende como o reconhecedor a escreve;
+  - para abrir o app sozinho, ele pede a permissão "Aparecer sobre outros apps"; sem ela, mostra uma notificação para tocar;
+  - a escuta pausa durante a conversa e volta 3 segundos depois.
+
 ## Histórico de execução
 - **Fase 0 (27/11/2026):** o Gemini foi removido (cliente, proxy, configuração de chave, ciclo do agente). O executor de ferramentas passou para `src/assistant/core/executor.ts`. O chat responde que o núcleo chega na Fase 1. A base inicial foi rascunhada (`src/assistant/knowledge/seed.ts`) e enviada para revisão no documento "MASON — Base inicial de conhecimento (revisão)".
 - **Fase 1 (27/11/2026):** núcleo próprio em funcionamento: normalização, classificador léxico com sinais fortes, modelo de significados (transformers.js, carregado no aparelho, com o léxico como reserva), contexto com perguntas pendentes, respostas a partir dos modelos revisados e análise crítica por critérios. Comportamentos D2, D3, D4, D4a, D7 e D11 cobertos por testes de conversa. Compreensão: 30 de 40 frases novas na primeira medição; 70 de 72 (97%) depois dos ajustes técnicos, só com o léxico. O desempenho do modelo de significados ainda precisa ser medido no aparelho.
