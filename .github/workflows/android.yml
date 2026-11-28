@@ -1,0 +1,109 @@
+name: APK do MASON
+
+# Gera o APK assinado a cada mudança na branch main e publica em Releases,
+# para baixar e instalar direto pelo celular.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      PW: ${{ secrets.MASON_SIGNING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir a senha de assinatura
+        run: |
+          if [ -z "$PW" ]; then
+            echo "::error::Falta o segredo MASON_SIGNING_PASSWORD. Crie em Settings > Secrets and variables > Actions e rode de novo."
+            exit 1
+          fi
+          if [ ${#PW} -lt 16 ]; then
+            echo "::error::A senha de assinatura precisa ter pelo menos 16 caracteres."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Testes
+        run: npm test
+
+      - name: Checagem de tipos (informativa)
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Cache do modelo de significados
+        uses: actions/cache@v4
+        with:
+          path: public/models
+          key: mason-model-paraphrase-multilingual-minilm-v1
+
+      - name: Modelo de significados e runtime
+        run: npm run model:download
+
+      - name: Build do app
+        run: npx vite build
+
+      - name: Projeto Android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          npx cap add android
+          node scripts/patch-android.mjs
+          npx cap sync android
+
+      - name: Chave de assinatura (criada só no primeiro build)
+        run: |
+          git fetch --depth=1 origin main
+          git checkout origin/main -- signing/ 2>/dev/null || true
+          if [ ! -f signing/mason-release.p12 ]; then
+            mkdir -p signing
+            keytool -genkeypair -storetype PKCS12 -keystore signing/mason-release.p12 -alias mason \
+              -keyalg RSA -keysize 4096 -validity 36500 -storepass "$PW" -keypass "$PW" \
+              -dname "CN=MASON, O=Gabriel Maia"
+            git config user.name "mason-ci"
+            git config user.email "mason-ci@users.noreply.github.com"
+            git add signing/mason-release.p12
+            git commit -m "Chave de assinatura do APK, protegida pela senha do segredo [skip ci]"
+            git push
+          fi
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Assinar APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -f -p 4 android/app/build/outputs/apk/release/app-release-unsigned.apk mason-aligned.apk
+          "$BT/apksigner" sign --ks signing/mason-release.p12 --ks-key-alias mason \
+            --ks-pass env:PW --key-pass env:PW --out "MASON-build-${{ github.run_number }}.apk" mason-aligned.apk
+          "$BT/apksigner" verify "MASON-build-${{ github.run_number }}.apk"
+
+      - name: Publicar em Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: MASON build ${{ github.run_number }}
+          body: ${{ github.event.head_commit.message || 'Build manual' }}
+          files: MASON-build-${{ github.run_number }}.apk

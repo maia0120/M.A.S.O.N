@@ -1,94 +1,83 @@
-# Escritório Virtual MASON
+# MASON — núcleo próprio (Fase 1)
 
-Uma empresa virtual operada por funcionários de IA. Um supervisor central, **MASON**, coordena quatro
-departamentos: Desenvolvimento, Comercial, Marketing Estratégico e Pesquisa e Inovação. Ele também é
-o seu ponto de contato como proprietário.
+Assistente pessoal privado: React + TypeScript + Vite, empacotado para Android com Capacitor, com dados locais em SQLite. **Não usa APIs de IA de terceiros.** O núcleo de inteligência é próprio, roda no aparelho e está sendo construído por fases. As decisões de produto estão em [`docs/DECISOES.md`](docs/DECISOES.md).
 
-## Como rodar
+## Situação atual
+
+**Fase 1 concluída:** o MASON conversa com um núcleo próprio, sem nenhuma API de IA.
+
+Pela conversa, ele já:
+- registra ideias (inclusive explicadas em várias mensagens), preservando suas palavras, e avisa quando a ideia parece com outra já salva;
+- analisa ideias por critérios (público, problema, monetização, riscos…) e salva a análise separada como sugestão dele;
+- aprova, arquiva, complementa e corrige ideias. Quando discorda, argumenta, reforça uma vez se você insistir e depois cumpre, registrando a decisão;
+- confirma referências vagas ("aquela ideia de semana passada") antes de usar;
+- procura no que foi salvo, diz como está um projeto e abre as áreas do app;
+- pergunta na hora quando não entende, sem inventar.
+
+Como entende: frases normalizadas (acentos, abreviações, muletas) → classificador próprio por pedaços de palavras + sinais fortes → modelo de significados no aparelho (quando presente) → contexto da conversa. Nos testes com 72 frases que não estão na base, acertou 97% só com o classificador léxico. O modelo de significados deve ajudar nas paráfrases mais distantes.
+
+## Plano de fases
+
+| Fase | Conteúdo |
+|---|---|
+| 0 ✅ | Remover o Gemini · rascunhar a base inicial de conhecimento |
+| 1 ✅ | Núcleo: normalização, interpretador (intenções + modelo de significados de ~120 MB), contexto, respostas no tom Jarvis · ideias, busca, abrir áreas · análise crítica por critérios |
+| 2 | Projetos, tarefas e atualizações · memória por associação · pedidos em etapas |
+| 3 | Documentos, prompts por modelo, análise de arquivos |
+| 4 | Voz grave com escolha de voz · Vosk offline · palavra de ativação "MASON" |
+| 5 | Conversa contínua por voz · autonomia configurável · aprendizado de expressões recorrentes |
+
+## Rodar no computador
 
 ```bash
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...      # sua chave da API da Anthropic
-python run.py                            # abra http://localhost:8000
+npm install
+npm run model:download   # uma vez: baixa o modelo de significados (~120 MB) para public/models
+npm run dev              # http://localhost:5173 — usa sql.js + IndexedDB no navegador
+npm test                 # banco, executor, conversas e compreensão (Node 22+)
 ```
 
-Variáveis opcionais:
+## Atualizações (GitHub)
 
-| Variável | Padrão | Para que serve |
-|---|---|---|
-| `MASON_MODEL` | `claude-opus-5-5` | Modelo usado por todos os agentes |
-| `MASON_MAX_PARALLEL` | `3` | Quantos trabalhos rodam ao mesmo tempo |
-| `MASON_DB` | `data/mason-local.db` | Banco local (só quando o Firebase não está configurado) |
-| `FIREBASE_WEB_API_KEY`, `FIREBASE_PROJECT_ID` | (vazio) | Ativam o login pelo Firebase |
-| `MASON_OWNER_UID` | (vazio) | UID da única conta autorizada |
-| `FIREBASE_SERVICE_ACCOUNT` | (vazio) | Credencial do servidor (JSON); alternativa ao arquivo secreto |
-| `MASON_PASSWORD` | (vazio) | Senha simples para uso no computador, sem Firebase |
-| `MASON_REPORT_HOURS` | `0` | Relatório automático a cada N horas (0 = desligado; também ajustável no painel) |
+O APK é gerado automaticamente pelo GitHub Actions (`.github/workflows/android.yml`) a cada mudança na branch `main`:
 
-## Acesso exclusivo e uso no celular
+1. O Gabriel pede a mudança na conversa com o Claude.
+2. O Claude altera o código, roda os testes e envia para `main`.
+3. O GitHub testa, baixa o modelo de significados, compila e **assina** o APK, e publica em **Releases** como `MASON-build-N.apk`.
+4. No celular: abrir a página de Releases do repositório, baixar o APK mais recente e tocar em Instalar. Os dados continuam no aparelho.
 
-O escritório tem **um único dono**. Não existe página de cadastro. O login usa **Firebase
-Authentication** e só aceita a conta cujo UID está em `MASON_OWNER_UID`; novos cadastros ficam
-desativados no próprio Firebase. Os dados ficam no **Cloud Firestore**, acessado somente pelo servidor
-(Admin SDK). As Security Rules (`firestore.rules`) bloqueiam qualquer acesso direto de navegadores ou apps.
+**Configuração única:** criar o segredo `MASON_SIGNING_PASSWORD` (Settings → Secrets and variables → Actions → New repository secret) com uma senha forte de pelo menos 16 caracteres, que não fica em nenhum outro lugar. No primeiro build, o GitHub cria a chave de assinatura (`signing/mason-release.p12`, protegida por essa senha) e a guarda no repositório. Todas as versões seguintes usam a mesma chave, o que permite atualizar sem desinstalar. **Não troque a senha nem apague essa chave**: sem elas, o Android recusa a atualização e seria preciso desinstalar, perdendo os dados.
 
-Para colocar no ar de graça (Firebase + Render) e instalar no celular, siga
-**[docs/CONFIGURAR.md](docs/CONFIGURAR.md)**.
+Antes de atualizações grandes, exporte um backup em Configurações → Armazenamento.
 
-O app abre em tela cheia, com abas MASON / Empresa / Aprovações. As respostas do MASON são geradas no
-servidor, então não se perdem se você bloquear a tela no meio de uma resposta.
+### Gerar o APK no computador (alternativa)
 
-## O que já funciona
+Requisitos: Android Studio (com SDK) e JDK 17.
 
-- **Chat com o MASON.** Você pede trabalhos, atualizações e relatórios. O MASON consulta os dados
-  reais da empresa antes de responder.
-- **Distribuição de tarefas.** O MASON cria tarefas para o departamento certo, com prioridade e prazo.
-  Elas rodam em segundo plano, várias ao mesmo tempo.
-- **Funcionários por departamento.** Cada um tem seu papel, suas instruções e suas permissões.
-  Registram progresso, entregam o resultado completo, registram bloqueios e pedem sua aprovação.
-  Também mandam mensagens ao MASON, pedem apoio a outros departamentos, fazem recomendações e
-  pesquisam na web.
-- **Revisão pelo MASON.** Toda entrega passa pela revisão do MASON, que pode aprovar ou devolver com
-  ajustes (até 2 rodadas). Isso pode ser desligado nas Configurações.
-- **Aprovações.** Decisões que envolvem dinheiro, contato externo ou publicação pausam a tarefa. Ela
-  volta a rodar sozinha quando você aprova ou rejeita no painel.
-- **Acompanhamento.** Você vê tarefas atrasadas, bloqueadas e com falha. O MASON pode cobrar um
-  departamento ou destravar uma tarefa (`enviar_orientacao`), e você também pode mandar mensagem
-  direto para uma tarefa.
-- **Memória compartilhada.** Guarda fatos duradouros: produtos, público, decisões e preferências. A
-  memória geral é vista por todos. A de cada departamento só por ele, pela Pesquisa e pelo MASON.
-- **Pesquisa e Inovação transversal.** Esse departamento lê as tarefas de todos os outros para sugerir
-  melhorias.
-- **Relatórios.** Sob demanda (botão) ou periódicos, ficam todos arquivados.
-- **Persistência.** Tudo fica no SQLite. Se o servidor for reiniciado, os trabalhos interrompidos
-  voltam para a fila.
-
-## Estrutura
-
-```
-mason/
-  company.py   departamentos, funcionários e as instruções de cada um (edite aqui)
-  agents.py    MASON e departamentos: prompts, ferramentas e permissões
-  llm.py       laço de execução dos agentes sobre a Messages API
-  worker.py    executor em segundo plano (tarefas, revisões, relatórios)
-  db.py        dados da empresa (tarefas, histórico, aprovações, mensagens, memória…)
-  store.py     onde os dados ficam: Cloud Firestore (produção) ou SQLite (computador)
-  auth.py      login exclusivo do proprietário (Firebase Authentication)
-  server.py    API HTTP do painel
-  static/      painel web (chat + quadro)
-tests/test_flow.py   teste de ponta a ponta com modelo simulado (não gasta API)
+```bash
+npm install
+npm run model:download
+npm run build
+npx cap add android && node scripts/patch-android.mjs && npx cap sync android
+cd android && ./gradlew assembleDebug
 ```
 
-Ciclo de vida de uma tarefa:
-`pendente → em_andamento → (bloqueada | aguardando_aprovacao | em_revisao) → concluida`.
-Os outros finais possíveis são `cancelada` e `falhou`.
+Um APK de depuração tem outra assinatura que a do GitHub: para trocar entre os dois, é preciso desinstalar.
 
-## Observações
+## Arquitetura
 
-- Os departamentos **não agem fora da empresa**: não enviam mensagens a clientes, não publicam e não
-  acessam seus sistemas. Eles produzem entregáveis e pedem aprovação quando necessário.
-- Custos: cada tarefa usa várias chamadas ao modelo, e a revisão automática acrescenta outras. Ajuste
-  `MASON_MAX_PARALLEL` e a revisão automática conforme o volume.
+```
+src/
+  interface/      dashboard, navegação, componentes, chat, páginas
+  assistant/      core (ponto de entrada do núcleo + executor), tools (ações validadas),
+                  intent / context (interpretador e contexto — Fase 1)
+  memory/         memórias, perfil de comunicação, correções de voz, conversas, atividades
+  work/           ideias, departamentos, indicadores
+  projects/       projetos, clientes, tarefas, documentos com versões, arquivos importados
+  integrations/   claude, lovable, github, vercel (registradas, não conectadas)
+  storage/        SQLite (drivers + migrações), arquivos, backup
+  voice/          reconhecimento, síntese, preferências, aprendizado de correções
+docs/             registro de decisões e base inicial de conhecimento
+tests/            testes com node:sqlite
+```
 
-Testes: `python tests/test_flow.py`, `python tests/test_server.py` e, com os emuladores do Firebase
-rodando (`firebase emulators:start --only auth,firestore --project demo-mason`), `python tests/test_firebase.py`.
+Fluxo planejado do núcleo (Fase 1 em diante): **normalização → interpretador → contexto → gerenciador de intenções → planejador → executor → gerenciador de respostas**, com memória e aprendizado consultados em cada etapa.

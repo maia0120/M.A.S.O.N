@@ -1,0 +1,39 @@
+{
+  "name": "mason",
+  "private": true,
+  "version": "0.3.0",
+  "type": "module",
+  "description": "MASON — assistente pessoal (uso privado)",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/check-model.mjs && tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/run.mjs",
+    "android:add": "cap add android",
+    "android:sync": "npm run build && cap sync android",
+    "android:open": "cap open android",
+    "model:download": "node scripts/download-model.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/speech-recognition": "^6.0.1",
+    "@capacitor-community/sqlite": "^6.0.2",
+    "@capacitor-community/text-to-speech": "^5.1.0",
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/filesystem": "^6.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sql.js": "^1.12.0",
+    "@huggingface/transformers": "^3.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/sql.js": "^1.4.9",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

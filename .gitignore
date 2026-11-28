@@ -1,8 +1,10 @@
-data/
-__pycache__/
-*.pyc
+node_modules
+dist
+*.keystore
 .env
-*firebase-adminsdk*.json
-firebase-service-account.json
-firebase-debug.log
-firestore-debug.log
+.env.*
+proxy/.dev.vars
+public/models
+public/ort
+android/
+*.apk
