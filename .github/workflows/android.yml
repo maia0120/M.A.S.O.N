@@ -18,14 +18,14 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     env:
-      PW: ${{ secrets.MASON_SIGNING_PASSWORD }}
+      PW: ${{ secrets.SENHA_MASON }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Conferir a senha de assinatura
         run: |
           if [ -z "$PW" ]; then
-            echo "::error::Falta o segredo MASON_SIGNING_PASSWORD. Crie em Settings > Secrets and variables > Actions e rode de novo."
+            echo "::error::Falta o segredo SENHA_MASON. Crie em Settings > Secrets and variables > Actions e rode de novo."
             exit 1
           fi
           if [ ${#PW} -lt 16 ]; then

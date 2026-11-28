@@ -45,7 +45,7 @@ O APK é gerado automaticamente pelo GitHub Actions (`.github/workflows/android.
 3. O GitHub testa, baixa o modelo de significados, compila e **assina** o APK, e publica em **Releases** como `MASON-build-N.apk`.
 4. No celular: abrir a página de Releases do repositório, baixar o APK mais recente e tocar em Instalar. Os dados continuam no aparelho.
 
-**Configuração única:** criar o segredo `MASON_SIGNING_PASSWORD` (Settings → Secrets and variables → Actions → New repository secret) com uma senha forte de pelo menos 16 caracteres, que não fica em nenhum outro lugar. No primeiro build, o GitHub cria a chave de assinatura (`signing/mason-release.p12`, protegida por essa senha) e a guarda no repositório. Todas as versões seguintes usam a mesma chave, o que permite atualizar sem desinstalar. **Não troque a senha nem apague essa chave**: sem elas, o Android recusa a atualização e seria preciso desinstalar, perdendo os dados.
+**Configuração única:** criar o segredo `SENHA_MASON` (Settings → Secrets and variables → Actions → New repository secret) com uma senha forte de pelo menos 16 caracteres, que não fica em nenhum outro lugar. No primeiro build, o GitHub cria a chave de assinatura (`signing/mason-release.p12`, protegida por essa senha) e a guarda no repositório. Todas as versões seguintes usam a mesma chave, o que permite atualizar sem desinstalar. **Não troque a senha nem apague essa chave**: sem elas, o Android recusa a atualização e seria preciso desinstalar, perdendo os dados.
 
 Antes de atualizações grandes, exporte um backup em Configurações → Armazenamento.
 
