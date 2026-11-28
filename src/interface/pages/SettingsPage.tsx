@@ -11,6 +11,7 @@ import { INTEGRATIONS } from '../../integrations';
 import { APP_VERSION } from '../../core/version';
 import { semanticStatus } from '../../assistant/intent/semantic';
 import { core, useReducedMotion } from '../components/coreState';
+import { listDiag, clearDiag, type DiagEntry } from '../../voice/diagnostics';
 import { loadWakePrefs, wakeStatus, wakeSupported, enableWake, disableWake, startCalibration, triggersFromCalibration, saveCalibration, resetCalibration, openOverlaySettings, type WakePrefs, type WakeStatus } from '../../voice/wake/wakeWord';
 
 export function SettingsPage() {
@@ -20,6 +21,7 @@ export function SettingsPage() {
       <CoreSettings />
       <VoiceSettings />
       <WakeSettings />
+      <VoiceDiagnostics />
       <CommunicationSettings />
       <AppearanceSettings />
       <StorageSettings />
@@ -52,7 +54,7 @@ function VoiceSettings() {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[] | null>(null);
   const [auto, setAuto] = useState<VoiceInfo | null>(null);
-  useEffect(() => { void getRecognizer().then((r) => r.available()).then(setAvailable).catch(() => setAvailable(false)); }, []);
+  useEffect(() => { void getRecognizer().available().then(setAvailable).catch(() => setAvailable(false)); }, []);
   useEffect(() => { void listVoices().then(setVoices).catch(() => setVoices([])); void pickVoice(null).then(setAuto).catch(() => undefined); }, []);
   if (!prefs) return null;
   const set = (p: Partial<VoicePrefs>) => saveVoicePrefs({ ...prefs, ...p });
@@ -70,8 +72,23 @@ function VoiceSettings() {
           ))}
         </div>
       </Field>
-      <label className="row small"><input type="checkbox" checked={prefs.continuous} onChange={(e) => set({ continuous: e.target.checked })} /> Conversa contínua: depois de responder, ele volta a ouvir sozinho</label>
-      <label className="row small"><input type="checkbox" checked={prefs.reviewBeforeSend} onChange={(e) => set({ reviewBeforeSend: e.target.checked })} /> Revisar o texto antes de enviar (interrompe a conversa contínua)</label>
+      <Field label="Modo de conversa">
+        <div className="tabs">
+          {([['controlada', 'Controlada'], ['continua', 'Contínua'], ['botao', 'Só botão']] as const).map(([v, l]) => (
+            <button key={v} className={`tab ${prefs.mode === v ? 'active' : ''}`} onClick={() => set({ mode: v })}>{l}</button>
+          ))}
+        </div>
+      </Field>
+      <p className="small muted">
+        {prefs.mode === 'controlada' && 'Ele ouve quando você toca (ou diz "MASON"), responde e espera. Para seguir, toque em Continuar ou diga "MASON".'}
+        {prefs.mode === 'continua' && 'Depois de responder, ele volta a ouvir sozinho. O botão "Encerrar conversa" fica sempre visível.'}
+        {prefs.mode === 'botao' && 'O microfone só abre quando você toca no botão. Nada de reabrir sozinho.'}
+      </p>
+      {prefs.mode === 'controlada' && <label className="row small"><input type="checkbox" checked={prefs.askToContinue} onChange={(e) => set({ askToContinue: e.target.checked })} /> Terminar cada resposta perguntando se quero continuar</label>}
+      <Field label={`Pausa antes de encerrar a escuta: ${(prefs.silenceMs / 1000).toFixed(1)} s (mais alto = tolera pausas ao falar)`}>
+        <input type="range" min={1000} max={4000} step={250} value={prefs.silenceMs} onChange={(e) => set({ silenceMs: Number(e.target.value) })} />
+      </Field>
+      <label className="row small"><input type="checkbox" checked={prefs.reviewBeforeSend} onChange={(e) => set({ reviewBeforeSend: e.target.checked })} /> Revisar o texto antes de enviar (corrigir aqui ensina o MASON)</label>
 
       <h3 style={{ marginTop: 8 }}>Voz do MASON</h3>
       {voices === null && <p className="small muted">Procurando vozes do aparelho…</p>}
@@ -94,6 +111,40 @@ function VoiceSettings() {
       <Field label={`Tom: ${prefs.pitch.toFixed(2)} (menor = mais grave)`}><input type="range" min={0.5} max={1.2} step={0.05} value={prefs.pitch} onChange={(e) => set({ pitch: Number(e.target.value) })} /></Field>
       <Field label={`Velocidade: ${prefs.rate.toFixed(2)}`}><input type="range" min={0.6} max={1.5} step={0.05} value={prefs.rate} onChange={(e) => set({ rate: Number(e.target.value) })} /></Field>
       <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => test(prefs.voiceName)}>Ouvir a voz atual</button>
+    </section>
+  );
+}
+
+function VoiceDiagnostics() {
+  const [list, setList] = useState<DiagEntry[] | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (open) void listDiag().then((l) => setList([...l])); }, [open]);
+  return (
+    <section className="card stack">
+      <div className="row between">
+        <h2>Diagnóstico de voz</h2>
+        <button className="btn" onClick={() => setOpen((v) => !v)}>{open ? 'Fechar' : 'Ver últimas falas'}</button>
+      </div>
+      <p className="small muted">Para cada fala: o que o reconhecedor ouviu (e as alternativas), o que o MASON entendeu e quanto tempo levou. Se o texto ouvido está errado, o problema é a transcrição. Se o texto está certo e a intenção errada, é a interpretação.</p>
+      {open && (
+        <>
+          {list?.length === 0 && <p className="small muted">Nenhuma fala registrada ainda.</p>}
+          <div className="list">
+            {list?.map((d, i) => (
+              <div key={i} className="list-item" style={{ cursor: 'default', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+                <span className="small muted">{new Date(d.at).toLocaleTimeString('pt-BR')} · {d.source}{d.listenMs ? ` · ouviu em ${(d.listenMs / 1000).toFixed(1)} s` : ''}{d.processMs !== undefined ? ` · respondeu em ${d.processMs} ms` : ''}</span>
+                {d.error && <span className="badge warn">Erro: {d.error}</span>}
+                {d.alternatives.map((a, k) => (
+                  <span key={k} className="small" style={{ opacity: k === 0 ? 1 : 0.6 }}>{k === 0 ? 'Ouvido: ' : `Alt. ${k}: `}“{a.text}”{a.confidence >= 0 ? ` (${Math.round(a.confidence * 100)}%)` : ''}</span>
+                ))}
+                {d.intent && <span className="small">Entendido: <strong>{d.intent.intent ?? 'nada'}</strong> ({Math.round(d.intent.score * 100)}%{d.intent.ambiguous ? ', ambíguo' : d.intent.confident ? '' : ', incerto'})</span>}
+                {d.note && <span className="small muted">{d.note}</span>}
+              </div>
+            ))}
+          </div>
+          {list && list.length > 0 && <button className="btn danger" style={{ alignSelf: 'flex-start' }} onClick={async () => { await clearDiag(); setList([]); }}>Limpar diagnóstico</button>}
+        </>
+      )}
     </section>
   );
 }

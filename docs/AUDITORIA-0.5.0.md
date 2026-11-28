@@ -126,6 +126,10 @@ Foram escritas 76 frases que **nunca** foram usadas em ajustes (`tests/avaliacao
 16. Fase 3: documentos, prompts, versões e comparação, além de arquivos importados ligados ao projeto.
 17. Departamentos com funções reais; Estudos e Pessoal precisam de definição com o Gabriel.
 
+## Andamento
+- **P0 implementado na 0.6.0** (D35–D39). Falta validar no aparelho: reconhecimento nativo, pausas e conflito com a palavra de ativação.
+- **P1:** pendente.
+
 ## 9. Riscos de regressão
 - **Trocar o plugin de reconhecimento** mexe em todo o caminho da voz. Mitigação: o plugin antigo continua como reserva até o novo ser validado no aparelho.
 - **A máquina de estados** substitui lógica espalhada em `ChatPanel`. Mitigação: testes do controlador, independentes da interface.

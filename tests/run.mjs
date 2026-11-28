@@ -7,7 +7,7 @@ import path from 'node:path';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 
 await build({
-  entryPoints: [path.join(dir, 'mason.test.ts'), path.join(dir, 'conversa.test.ts'), path.join(dir, 'compreensao.test.ts')],
+  entryPoints: [path.join(dir, 'mason.test.ts'), path.join(dir, 'conversa.test.ts'), path.join(dir, 'compreensao.test.ts'), path.join(dir, 'voz.test.ts')],
   bundle: true,
   platform: 'node',
   format: 'esm',
@@ -21,5 +21,5 @@ await build({
   external: ['node:*', 'react', '@capacitor-community/*', '@capacitor/filesystem', 'sql.js', 'sql.js/*', '@huggingface/transformers'],
 });
 
-const r = spawnSync(process.execPath, ['--experimental-sqlite', '--no-warnings', '--test', path.join(dir, '.build', 'mason.test.mjs'), path.join(dir, '.build', 'conversa.test.mjs'), path.join(dir, '.build', 'compreensao.test.mjs')], { stdio: 'inherit' });
+const r = spawnSync(process.execPath, ['--experimental-sqlite', '--no-warnings', '--test', path.join(dir, '.build', 'mason.test.mjs'), path.join(dir, '.build', 'conversa.test.mjs'), path.join(dir, '.build', 'compreensao.test.mjs'), path.join(dir, '.build', 'voz.test.mjs')], { stdio: 'inherit' });
 process.exit(r.status ?? 1);

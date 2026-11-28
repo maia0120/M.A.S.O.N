@@ -95,8 +95,11 @@ export async function pauseWake(): Promise<boolean> {
   return true;
 }
 
+/** Volta a escutar "MASON" se o serviço estiver ligado e parado (pausado por nós ou pela escuta nativa). */
 export async function resumeWake() {
-  if (!wakeSupported() || !paused) return;
+  if (!wakeSupported()) return;
+  const st = await Wake.status().catch(() => null);
+  if (!st?.running || st.listening) return;
   paused = false;
   await Wake.resume().catch(() => undefined);
 }
@@ -147,11 +150,18 @@ export async function initWake(): Promise<void> {
   if (st?.userStopped && prefs.enabled) await saveWakePrefs({ ...prefs, enabled: false });
   else if (prefs.enabled && !st?.running) await startService(prefs).catch(() => undefined);
 
-  // Enquanto o MASON ouve, pensa ou fala, a palavra de ativação fica em pausa; 3 s em espera e ela volta.
+  // A palavra de ativação é independente da conversa (D35). Só divide o microfone:
+  // fica em pausa enquanto o MASON ouve, transcreve, pensa ou fala, e volta 1,5 s depois
+  // (inclusive em "Aguardando você", para dar para continuar dizendo "MASON").
+  const busy = new Set(['listening', 'transcribing', 'thinking', 'speaking']);
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let lastMode = core.mode();
   core.subscribe(() => {
+    const m = core.mode();
+    if (m === lastMode) return; // mudanças de nível de voz não interessam
+    lastMode = m;
     if (timer) clearTimeout(timer);
-    if (core.mode() !== 'idle') { void pauseWake(); return; }
-    timer = setTimeout(() => { if (core.mode() === 'idle') void resumeWake(); }, 3000);
+    if (busy.has(m)) { if (m === 'speaking') void pauseWake(); return; } // escutar: o plugin nativo já solta o microfone
+    timer = setTimeout(() => { if (!busy.has(core.mode())) void resumeWake(); }, 1500);
   });
 }

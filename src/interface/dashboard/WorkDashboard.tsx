@@ -2,6 +2,7 @@ import { nav } from '../navigation/navStore';
 import { sectionById } from '../navigation/sections';
 import { useData, StatusBadge, Empty, CountUp } from '../components/ui';
 import { Orb } from '../components/Orb';
+import { conversation } from '../../voice/conversation';
 import { greetingByHour } from '../../assistant/core/responses';
 import { workStats, type WorkStats } from '../../work/stats';
 import { recentActivities } from '../../memory/history/activityRepo';
@@ -29,7 +30,7 @@ export function WorkDashboard() {
   return (
     <>
       <section className="card hero">
-        <Orb size={168} onClick={() => nav.setChat(true)} showLabel />
+        <Orb size={168} onClick={() => { nav.setChat(true); void conversation.listen('button'); }} showLabel />
         <div className="hero-text">
           <div className="hero-status">Núcleo online · Gestão de trabalho</div>
           <div className="hero-hello"><span>{greetingByHour()}, Gabriel.</span></div>

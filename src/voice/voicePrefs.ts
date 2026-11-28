@@ -1,12 +1,18 @@
 import { getPref, setPref } from '../memory/preferences/profileRepo';
 
 export type ReplyMode = 'sempre' | 'quando_falo' | 'nunca';
+/** D35: controlada (padrão) · contínua · só botão. */
+export type ConvMode = 'controlada' | 'continua' | 'botao';
 
 export interface VoicePrefs {
   /** Quando o MASON responde falando. As respostas ficam salvas em texto de qualquer forma. */
   replyMode: ReplyMode;
-  /** Depois de responder a uma fala, volta a ouvir sozinho (conversa contínua). */
-  continuous: boolean;
+  /** Como a conversa por voz continua depois de cada resposta. */
+  mode: ConvMode;
+  /** No modo controlado, terminar a resposta perguntando se quer continuar (falado). */
+  askToContinue: boolean;
+  /** Tempo de silêncio (ms) antes de encerrar a captura — mais alto tolera pausas naturais. */
+  silenceMs: number;
   /** Mostrar a transcrição para revisão antes de enviar (desligado = conversa fluida). */
   reviewBeforeSend: boolean;
   /** Nome da voz escolhida no aparelho; null = escolher automaticamente uma masculina pt-BR. */
@@ -18,7 +24,9 @@ export interface VoicePrefs {
 
 export const DEFAULT_VOICE: VoicePrefs = {
   replyMode: 'sempre',
-  continuous: true,
+  mode: 'controlada',
+  askToContinue: true,
+  silenceMs: 2000,
   reviewBeforeSend: false,
   voiceName: null,
   rate: 0.98,
@@ -28,9 +36,10 @@ export const DEFAULT_VOICE: VoicePrefs = {
 export async function loadVoicePrefs(): Promise<VoicePrefs> {
   const raw = await getPref('voice');
   if (!raw) return { ...DEFAULT_VOICE };
-  const saved = JSON.parse(raw) as Partial<VoicePrefs> & { speakReplies?: boolean };
-  // versão anterior: speakReplies (só respondia por voz quando falava)
+  const saved = JSON.parse(raw) as Partial<VoicePrefs> & { speakReplies?: boolean; continuous?: boolean };
+  // versões anteriores: speakReplies (0.3) e continuous (0.4–0.5). D35: o padrão passa a ser "controlada".
   delete saved.speakReplies;
+  delete saved.continuous;
   return { ...DEFAULT_VOICE, ...saved };
 }
 

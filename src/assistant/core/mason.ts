@@ -20,7 +20,11 @@ export interface MasonReply {
   message: ChatMessage;
   actions: ActionRecord[];
   pending: PendingAction[];
+  /** Como a mensagem foi interpretada (para o diagnóstico de voz). */
+  debug: { intent: string | null; score: number; confident: boolean; ambiguous: boolean };
 }
+
+let lastDebug: MasonReply['debug'] = { intent: null, score: 0, confident: false, ambiguous: false };
 
 /**
  * Núcleo próprio do MASON (Fase 1).
@@ -51,7 +55,7 @@ export async function sendToMason(text: string, opts: { voice?: boolean; signal?
   // A resposta fica salva completa em texto; a versão falada (mais curta) é montada na hora de falar.
   void opts;
   const message = await addMessage(conversationId, 'assistant', reply, { actions: turn.actions });
-  return { message, actions: turn.actions, pending: turn.confirmations };
+  return { message, actions: turn.actions, pending: turn.confirmations, debug: lastDebug };
 }
 
 export async function startNewConversation(): Promise<void> {
@@ -70,6 +74,7 @@ async function think(raw: string, turn: Turn): Promise<string> {
   if (!raw) return 'Pode falar, Gabriel.';
   const it = await interpret(raw);
   const top = it.top?.intent ?? null;
+  lastDebug = { intent: top, score: Number((it.top?.score ?? 0).toFixed(2)), confident: it.confident, ambiguous: it.ambiguous };
   const switching = it.confident && top !== null && ACTION_INTENTS.has(top);
 
   // 1. Uma pergunta minha está esperando resposta
