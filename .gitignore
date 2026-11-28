@@ -6,7 +6,7 @@ dist
 proxy/.dev.vars
 public/models
 public/ort
-android/
+/android/
 *.apk
 plugins/mason-wakeword/android/src/main/assets/model-pt
 .vosk-tmp
