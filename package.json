@@ -13,7 +13,8 @@
     "android:add": "cap add android",
     "android:sync": "npm run build && cap sync android",
     "android:open": "cap open android",
-    "model:download": "node scripts/download-model.mjs && node scripts/download-vosk.mjs"
+    "model:download": "node scripts/download-model.mjs && node scripts/download-vosk.mjs",
+    "avaliar": "node tests/avaliacao/run.mjs"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^6.0.1",
