@@ -11,6 +11,7 @@ import { extractCorrections } from '../../voice/corrections';
 import { Orb } from '../components/Orb';
 import { Icon } from '../components/ui';
 import { core } from '../components/coreState';
+import { forVoice } from '../../assistant/core/responses';
 
 interface UiMessage {
   id: string;
@@ -30,6 +31,10 @@ export function ChatPanel() {
   const transcriptRef = useRef<string | null>(null); // transcrição original, para aprender com correções
   const abortRef = useRef<AbortController | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const speakingRef = useRef(false);
+  const chatOpenRef = useRef(false);
+  const micRef = useRef<(auto?: boolean) => Promise<void>>(async () => undefined);
+  chatOpenRef.current = chatOpen;
 
   const loadHistory = async () => {
     const conv = await currentConversationId();
@@ -64,9 +69,17 @@ export function ChatPanel() {
       if (reply.pending.length) setPending((p) => [...p, ...reply.pending]);
       const prefs = await loadVoicePrefs();
       core.set('idle');
-      if (wasVoice && prefs.speakReplies && !ctrl.signal.aborted) {
+      const talk = prefs.replyMode === 'sempre' || (prefs.replyMode === 'quando_falo' && wasVoice);
+      if (talk && !ctrl.signal.aborted) {
         core.set('speaking');
-        void speak(reply.message.content, prefs).finally(() => core.set('idle'));
+        speakingRef.current = true;
+        void speak(forVoice(reply.message.content), prefs).finally(() => {
+          core.set('idle');
+          const interrupted = !speakingRef.current;
+          speakingRef.current = false;
+          // Conversa contínua: depois de responder a uma fala, volta a ouvir.
+          if (!interrupted && wasVoice && prefs.continuous && chatOpenRef.current && reply.pending.length === 0) void micRef.current(true);
+        });
       }
     } finally {
       if (core.mode() === 'thinking') core.set('idle');
@@ -82,11 +95,12 @@ export function ChatPanel() {
     return () => window.removeEventListener('mason:ask', handler);
   });
 
-  const mic = async () => {
+  const mic = async (auto = false) => {
     if (listening) {
       await (await getRecognizer()).stop();
       return;
     }
+    speakingRef.current = false;
     await stopSpeaking(); // interromper a fala ao começar a ouvir
     core.set('idle');
     setVoiceInfo(null);
@@ -101,7 +115,10 @@ export function ChatPanel() {
       setListening(false);
       const fixed = applyCorrections(raw, corrections);
       const full = (before + fixed).trim();
-      if (!full) { setVoiceInfo('Não captei nada. Tente de novo.'); return; }
+      if (!full) {
+        setVoiceInfo(auto ? 'Conversa pausada. Toque no núcleo para continuar.' : 'Não captei nada. Tente de novo.');
+        return;
+      }
       const prefs = await loadVoicePrefs();
       if (prefs.reviewBeforeSend) {
         transcriptRef.current = full;
@@ -117,8 +134,11 @@ export function ChatPanel() {
     }
   };
 
+  micRef.current = mic;
+
   const stop = () => {
     abortRef.current?.abort();
+    speakingRef.current = false;
     void stopSpeaking();
     core.set('idle');
   };
@@ -141,11 +161,11 @@ export function ChatPanel() {
         <div><strong>MASON</strong><small>em {sectionById(section)?.title ?? section}</small></div>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn" onClick={async () => { if (window.confirm('Começar uma nova conversa? A atual fica guardada no histórico.')) { await startNewConversation(); setPending([]); await loadHistory(); } }}>Nova</button>
-          <button className="btn" onClick={() => nav.setChat(false)} aria-label="Fechar">Fechar</button>
+          <button className="btn" onClick={() => { stop(); void getRecognizer().then((r) => r.stop()); nav.setChat(false); }} aria-label="Fechar">Fechar</button>
         </div>
       </div>
       <div className={`chat-stage ${messages.length ? 'compact' : ''}`}>
-        <Orb size={messages.length ? 96 : 170} onClick={mic} showLabel />
+        <Orb size={messages.length ? 96 : 170} onClick={() => (core.mode() === 'speaking' ? stop() : void mic())} showLabel />
       </div>
       <div className="chat-body" ref={bodyRef}>
         {messages.length === 0 && <div className="muted small" style={{ textAlign: 'center', marginTop: 20 }}>Toque no núcleo para falar, ou escreva do seu jeito. Ex.: “Mano, tive uma ideia…”</div>}
@@ -177,7 +197,7 @@ export function ChatPanel() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(input); } }}
         />
-        <button className={`icon-btn ${listening ? 'recording' : ''}`} onClick={mic} aria-label={listening ? 'Parar de ouvir' : 'Falar'}>{listening ? <Icon name="stop" /> : <Icon name="mic" />}</button>
+        <button className={`icon-btn ${listening ? 'recording' : ''}`} onClick={() => void mic()} aria-label={listening ? 'Parar de ouvir' : 'Falar'}>{listening ? <Icon name="stop" /> : <Icon name="mic" />}</button>
         {busy
           ? <button className="icon-btn" onClick={stop} aria-label="Interromper"><Icon name="stop" /></button>
           : <button className="icon-btn primary" onClick={() => { stop(); void send(input); }} disabled={!input.trim()} aria-label="Enviar"><Icon name="send" /></button>}

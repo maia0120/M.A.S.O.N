@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useData, PageHeader, Field, copyText } from '../components/ui';
 import { loadVoicePrefs, saveVoicePrefs, type VoicePrefs } from '../../voice/voicePrefs';
 import { getRecognizer } from '../../voice/speech-recognition/recognizer';
-import { speak } from '../../voice/speech-synthesis/speaker';
+import { speak, listVoices, pickVoice, type VoiceInfo } from '../../voice/speech-synthesis/speaker';
 import { getPref, setPref } from '../../memory/preferences/profileRepo';
 import { clearAllConversations } from '../../memory/history/conversationRepo';
 import { exportAll, tableCounts, schemaVersion } from '../../storage/backup';
@@ -48,19 +48,50 @@ function CoreSettings() {
 function VoiceSettings() {
   const { data: prefs } = useData(loadVoicePrefs, ['preferences']);
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [voices, setVoices] = useState<VoiceInfo[] | null>(null);
+  const [auto, setAuto] = useState<VoiceInfo | null>(null);
   useEffect(() => { void getRecognizer().then((r) => r.available()).then(setAvailable).catch(() => setAvailable(false)); }, []);
+  useEffect(() => { void listVoices().then(setVoices).catch(() => setVoices([])); void pickVoice(null).then(setAuto).catch(() => undefined); }, []);
   if (!prefs) return null;
   const set = (p: Partial<VoicePrefs>) => saveVoicePrefs({ ...prefs, ...p });
+  const test = (name: string | null) => speak('Boa noite, Gabriel. Esta é a minha voz. Posso ajudar em alguma coisa?', { ...prefs, voiceName: name });
+  const current = prefs.voiceName ?? auto?.name ?? null;
+  const noMale = voices !== null && voices.length > 0 && !voices.some((v) => v.male);
   return (
     <section className="card stack">
       <h2>Voz</h2>
-      <p className="small muted">Reconhecimento de fala: {available === null ? 'verificando…' : available ? 'disponível (pt-BR)' : 'indisponível neste aparelho/navegador'}</p>
-      <label className="row small"><input type="checkbox" checked={prefs.reviewBeforeSend} onChange={(e) => set({ reviewBeforeSend: e.target.checked })} /> Revisar a transcrição antes de enviar (permite corrigir e ensinar o MASON)</label>
-      <label className="row small"><input type="checkbox" checked={prefs.speakReplies} onChange={(e) => set({ speakReplies: e.target.checked })} /> Responder em voz quando eu falar pelo microfone</label>
-      <Field label={`Velocidade da fala: ${prefs.rate.toFixed(2)}`}><input type="range" min={0.6} max={1.6} step={0.05} value={prefs.rate} onChange={(e) => set({ rate: Number(e.target.value) })} /></Field>
-      <Field label={`Tom: ${prefs.pitch.toFixed(2)}`}><input type="range" min={0.7} max={1.3} step={0.05} value={prefs.pitch} onChange={(e) => set({ pitch: Number(e.target.value) })} /></Field>
-      <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => speak('Oi. Esta é a minha voz atual. Dá pra ajustar a velocidade e o tom aqui.', prefs)}>Ouvir exemplo</button>
-      <p className="small muted">A escolha de uma voz específica do aparelho será adicionada numa próxima versão.</p>
+      <p className="small muted">Reconhecimento de fala: {available === null ? 'verificando…' : available ? 'disponível (pt-BR)' : 'indisponível neste aparelho'}</p>
+      <Field label="Quando o MASON responde falando (o texto fica sempre salvo)">
+        <div className="tabs">
+          {([['sempre', 'Sempre'], ['quando_falo', 'Só quando eu falo'], ['nunca', 'Nunca']] as const).map(([v, l]) => (
+            <button key={v} className={`tab ${prefs.replyMode === v ? 'active' : ''}`} onClick={() => set({ replyMode: v })}>{l}</button>
+          ))}
+        </div>
+      </Field>
+      <label className="row small"><input type="checkbox" checked={prefs.continuous} onChange={(e) => set({ continuous: e.target.checked })} /> Conversa contínua: depois de responder, ele volta a ouvir sozinho</label>
+      <label className="row small"><input type="checkbox" checked={prefs.reviewBeforeSend} onChange={(e) => set({ reviewBeforeSend: e.target.checked })} /> Revisar o texto antes de enviar (interrompe a conversa contínua)</label>
+
+      <h3 style={{ marginTop: 8 }}>Voz do MASON</h3>
+      {voices === null && <p className="small muted">Procurando vozes do aparelho…</p>}
+      {voices?.length === 0 && <p className="notice">Nenhuma voz em português encontrada. Instale em Configurações do Android → Idioma → Saída de texto para fala → Google → Instalar dados de voz → Português (Brasil).</p>}
+      {noMale && <p className="notice">Não identifiquei pelo nome uma voz masculina. Teste as vozes abaixo e escolha a melhor; o tom grave já está aplicado. Para ter mais opções, instale vozes extras em Configurações do Android → Saída de texto para fala → Google → Instalar dados de voz → Português (Brasil).</p>}
+      <div className="list">
+        {voices?.map((v) => (
+          <div key={v.name} className="list-item" style={{ cursor: 'default' }}>
+            <div>
+              <strong style={{ fontSize: '0.88rem' }}>{v.name}</strong>
+              <div className="small muted">{v.lang}{v.male ? ' · masculina' : v.female ? ' · feminina' : ''}{current === v.name ? ' · em uso' : ''}</div>
+            </div>
+            <div className="row" style={{ gap: 6 }}>
+              <button className="btn" onClick={() => test(v.name)}>Testar</button>
+              <button className={`btn ${current === v.name ? 'primary' : ''}`} onClick={() => set({ voiceName: v.name })}>{current === v.name ? 'Escolhida' : 'Usar'}</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Field label={`Tom: ${prefs.pitch.toFixed(2)} (menor = mais grave)`}><input type="range" min={0.5} max={1.2} step={0.05} value={prefs.pitch} onChange={(e) => set({ pitch: Number(e.target.value) })} /></Field>
+      <Field label={`Velocidade: ${prefs.rate.toFixed(2)}`}><input type="range" min={0.6} max={1.5} step={0.05} value={prefs.rate} onChange={(e) => set({ rate: Number(e.target.value) })} /></Field>
+      <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => test(prefs.voiceName)}>Ouvir a voz atual</button>
     </section>
   );
 }

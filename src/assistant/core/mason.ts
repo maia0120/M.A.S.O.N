@@ -10,7 +10,7 @@ import { fold } from '../intent/normalize';
 import { ideaContent, titleFrom, findCategory, findSection, subjectOf } from '../intent/entities';
 import { state, setFocus, recentFocus, type PendingThen } from '../context/dialogState';
 import { resolveIdea, pickFromList } from '../context/resolve';
-import { respond, shortDate, joinList, forVoice } from './responses';
+import { respond, shortDate, joinList } from './responses';
 import { execute, type ActionRecord, type PendingAction } from './executor';
 
 export type { ActionRecord, PendingAction } from './executor';
@@ -48,8 +48,9 @@ export async function sendToMason(text: string, opts: { voice?: boolean; signal?
   } catch (e) {
     reply = respond('falha', { erro: (e as Error).message });
   }
-  const shown = opts.voice ? forVoice(reply) : reply;
-  const message = await addMessage(conversationId, 'assistant', shown, { actions: turn.actions });
+  // A resposta fica salva completa em texto; a versão falada (mais curta) é montada na hora de falar.
+  void opts;
+  const message = await addMessage(conversationId, 'assistant', reply, { actions: turn.actions });
   return { message, actions: turn.actions, pending: turn.confirmations };
 }
 

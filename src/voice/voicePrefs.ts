@@ -1,19 +1,37 @@
 import { getPref, setPref } from '../memory/preferences/profileRepo';
 
+export type ReplyMode = 'sempre' | 'quando_falo' | 'nunca';
+
 export interface VoicePrefs {
-  /** Ler as respostas em voz alta quando a mensagem veio do microfone. */
-  speakReplies: boolean;
-  /** Mostrar a transcrição para revisão antes de enviar (permite corrigir erros do reconhecimento). */
+  /** Quando o MASON responde falando. As respostas ficam salvas em texto de qualquer forma. */
+  replyMode: ReplyMode;
+  /** Depois de responder a uma fala, volta a ouvir sozinho (conversa contínua). */
+  continuous: boolean;
+  /** Mostrar a transcrição para revisão antes de enviar (desligado = conversa fluida). */
   reviewBeforeSend: boolean;
+  /** Nome da voz escolhida no aparelho; null = escolher automaticamente uma masculina pt-BR. */
+  voiceName: string | null;
   rate: number;
+  /** Tom: abaixo de 1 deixa a voz mais grave. */
   pitch: number;
 }
 
-export const DEFAULT_VOICE: VoicePrefs = { speakReplies: true, reviewBeforeSend: true, rate: 1.05, pitch: 1.0 };
+export const DEFAULT_VOICE: VoicePrefs = {
+  replyMode: 'sempre',
+  continuous: true,
+  reviewBeforeSend: false,
+  voiceName: null,
+  rate: 0.98,
+  pitch: 0.8,
+};
 
 export async function loadVoicePrefs(): Promise<VoicePrefs> {
   const raw = await getPref('voice');
-  return raw ? { ...DEFAULT_VOICE, ...JSON.parse(raw) } : { ...DEFAULT_VOICE };
+  if (!raw) return { ...DEFAULT_VOICE };
+  const saved = JSON.parse(raw) as Partial<VoicePrefs> & { speakReplies?: boolean };
+  // versão anterior: speakReplies (só respondia por voz quando falava)
+  delete saved.speakReplies;
+  return { ...DEFAULT_VOICE, ...saved };
 }
 
 export async function saveVoicePrefs(p: VoicePrefs): Promise<void> {
