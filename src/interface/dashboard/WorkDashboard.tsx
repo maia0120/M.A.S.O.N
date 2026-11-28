@@ -1,6 +1,8 @@
 import { nav } from '../navigation/navStore';
 import { sectionById } from '../navigation/sections';
-import { useData, StatusBadge, Empty, PageHeader } from '../components/ui';
+import { useData, StatusBadge, Empty, CountUp } from '../components/ui';
+import { Orb } from '../components/Orb';
+import { greetingByHour } from '../../assistant/core/responses';
 import { workStats, type WorkStats } from '../../work/stats';
 import { recentActivities } from '../../memory/history/activityRepo';
 import { listProjects } from '../../projects/projectsRepo';
@@ -26,16 +28,29 @@ export function WorkDashboard() {
 
   return (
     <>
-      <PageHeader title="Gestão de trabalho" subtitle="Ideias, planejamento e acompanhamento dos projetos" />
+      <section className="card hero">
+        <Orb size={168} onClick={() => nav.setChat(true)} showLabel />
+        <div className="hero-text">
+          <div className="hero-status">Núcleo online · Gestão de trabalho</div>
+          <div className="hero-hello"><span>{greetingByHour()}, Gabriel.</span></div>
+          <p className="muted typewriter">
+            {stats ? `${stats.ideasTotal} ideia${stats.ideasTotal === 1 ? '' : 's'}, ${stats.projectsActive} projeto${stats.projectsActive === 1 ? '' : 's'} ativo${stats.projectsActive === 1 ? '' : 's'} e ${stats.tasksOpen} tarefa${stats.tasksOpen === 1 ? '' : 's'} em aberto.` : 'Carregando…'}
+          </p>
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="btn primary" onClick={() => nav.setChat(true)}>Falar com o MASON</button>
+            <button className="btn" onClick={() => nav.open('ideas')}>Central de ideias</button>
+          </div>
+        </div>
+      </section>
 
-      <div className="grid cols-4">
+      <div className="grid cols-4 stagger">
         <Stat value={stats?.ideasTotal} label="Ideias registradas" />
         <Stat value={stats?.projectsActive} label="Projetos ativos" />
         <Stat value={stats?.tasksOpen} label="Tarefas abertas" warn={stats?.tasksOverdue ? `${stats.tasksOverdue} atrasada(s)` : undefined} />
         <Stat value={stats?.documents} label="Documentos" />
       </div>
 
-      <div className="grid cols-3">
+      <div className="grid cols-3 stagger">
         {DEPTS.map((d) => {
           const s = sectionById(d.id)!;
           return (
@@ -48,7 +63,7 @@ export function WorkDashboard() {
         })}
       </div>
 
-      <div className="grid cols-2">
+      <div className="grid cols-2 stagger">
         <section className="card stack">
           <div className="row between"><h2>Projetos em andamento</h2><button className="btn ghost small" onClick={() => nav.open('projects')}>Ver todos</button></div>
           {projects && projects.filter((p) => p.status === 'ativo').length === 0 && <Empty>Nenhum projeto ativo. Peça ao MASON para transformar uma ideia em projeto.</Empty>}
@@ -84,8 +99,9 @@ export function WorkDashboard() {
 function Stat({ value, label: l, warn }: { value: number | undefined; label: string; warn?: string }) {
   return (
     <div className="card">
-      <div className="stat-value">{value ?? '…'}</div>
+      <div className="stat-value"><CountUp value={value} /></div>
       <div className="stat-label">{l}</div>
+      <div className="stat-bar"><span /></div>
       {warn && <span className="badge danger" style={{ marginTop: 6 }}>{warn}</span>}
     </div>
   );

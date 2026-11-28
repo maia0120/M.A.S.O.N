@@ -53,6 +53,12 @@ Entrevista de definição (Prompt 02), 27/11/2026. Cada decisão foi escolhida p
 
 - **D27.** Atualizações pelo GitHub: o app novo **substitui o conteúdo do repositório `maia0120/M.A.S.O.N`**. O projeto antigo (Escritório Virtual em Python) fica preservado no histórico do Git (commit `127d7ac`). O APK assinado é gerado pelo GitHub Actions e publicado em Releases. A instalação no celular é sempre feita pelo Gabriel, porque o Android exige isso.
 
+## Design (27/11/2026)
+- **D28.** Visual **escuro, no estilo Jarvis**: fundo quase preto, roxo luminoso, cartões translúcidos e ar de painel futurista. Isso substitui o tema claro da primeira versão.
+- **D29.** **Bastante animação e interatividade**, o que revê o "sem excesso de animações" do documento original. Para proteger a bateria do aparelho de 4 GB, as animações pausam com o app em segundo plano, e as Configurações têm a opção "Animações reduzidas".
+- **D30.** O assistente aparece como um **núcleo animado** (um orbe luminoso) que muda conforme o estado: em espera, ouvindo, pensando e falando. Ele fica em destaque no painel e abre a conversa em tela cheia.
+- **D31.** A navegação continua com o **menu lateral**.
+
 ## Histórico de execução
 - **Fase 0 (27/11/2026):** o Gemini foi removido (cliente, proxy, configuração de chave, ciclo do agente). O executor de ferramentas passou para `src/assistant/core/executor.ts`. O chat responde que o núcleo chega na Fase 1. A base inicial foi rascunhada (`src/assistant/knowledge/seed.ts`) e enviada para revisão no documento "MASON — Base inicial de conhecimento (revisão)".
 - **Fase 1 (27/11/2026):** núcleo próprio em funcionamento: normalização, classificador léxico com sinais fortes, modelo de significados (transformers.js, carregado no aparelho, com o léxico como reserva), contexto com perguntas pendentes, respostas a partir dos modelos revisados e análise crítica por critérios. Comportamentos D2, D3, D4, D4a, D7 e D11 cobertos por testes de conversa. Compreensão: 30 de 40 frases novas na primeira medição; 70 de 72 (97%) depois dos ajustes técnicos, só com o léxico. O desempenho do modelo de significados ainda precisa ser medido no aparelho.

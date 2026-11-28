@@ -8,6 +8,9 @@ import { getRecognizer } from '../../voice/speech-recognition/recognizer';
 import { speak, stopSpeaking } from '../../voice/speech-synthesis/speaker';
 import { loadVoicePrefs } from '../../voice/voicePrefs';
 import { extractCorrections } from '../../voice/corrections';
+import { Orb } from '../components/Orb';
+import { Icon } from '../components/ui';
+import { core } from '../components/coreState';
 
 interface UiMessage {
   id: string;
@@ -52,6 +55,7 @@ export function ChatPanel() {
     setInput('');
     setMessages((m) => [...m, { id: `tmp-${Date.now()}`, role: 'user', content: clean }]);
     setBusy(true);
+    core.set('thinking');
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
@@ -59,8 +63,13 @@ export function ChatPanel() {
       setMessages((m) => [...m, { id: reply.message.id, role: 'assistant', content: reply.message.content, actions: reply.actions }]);
       if (reply.pending.length) setPending((p) => [...p, ...reply.pending]);
       const prefs = await loadVoicePrefs();
-      if (wasVoice && prefs.speakReplies && !ctrl.signal.aborted) void speak(reply.message.content, prefs);
+      core.set('idle');
+      if (wasVoice && prefs.speakReplies && !ctrl.signal.aborted) {
+        core.set('speaking');
+        void speak(reply.message.content, prefs).finally(() => core.set('idle'));
+      }
     } finally {
+      if (core.mode() === 'thinking') core.set('idle');
       setBusy(false);
       abortRef.current = null;
     }
@@ -79,6 +88,7 @@ export function ChatPanel() {
       return;
     }
     await stopSpeaking(); // interromper a fala ao começar a ouvir
+    core.set('idle');
     setVoiceInfo(null);
     try {
       const rec = await getRecognizer();
@@ -86,7 +96,8 @@ export function ChatPanel() {
       const corrections = await listCorrections();
       const before = input ? input.trim() + ' ' : '';
       setListening(true);
-      const raw = await rec.listen((partial) => setInput(before + partial));
+      core.set('listening');
+      const raw = await rec.listen((partial) => setInput(before + partial)).finally(() => core.set('idle'));
       setListening(false);
       const fixed = applyCorrections(raw, corrections);
       const full = (before + fixed).trim();
@@ -109,6 +120,7 @@ export function ChatPanel() {
   const stop = () => {
     abortRef.current?.abort();
     void stopSpeaking();
+    core.set('idle');
   };
 
   const decide = async (p: PendingAction, ok: boolean) => {
@@ -118,7 +130,10 @@ export function ChatPanel() {
     await loadHistory();
   };
 
-  if (!chatOpen) return <button className="fab" onClick={() => nav.setChat(true)} aria-label="Abrir o MASON">MASON</button>;
+  if (!chatOpen) {
+    if (section === 'work-dashboard') return null; // no painel, o orbe já está em destaque
+    return <div className="fab-orb"><Orb size={64} onClick={() => nav.setChat(true)} /></div>;
+  }
 
   return (
     <div className="chat" role="dialog" aria-label="Conversa com o MASON">
@@ -129,8 +144,11 @@ export function ChatPanel() {
           <button className="btn" onClick={() => nav.setChat(false)} aria-label="Fechar">Fechar</button>
         </div>
       </div>
+      <div className={`chat-stage ${messages.length ? 'compact' : ''}`}>
+        <Orb size={messages.length ? 96 : 170} onClick={mic} showLabel />
+      </div>
       <div className="chat-body" ref={bodyRef}>
-        {messages.length === 0 && <div className="muted small" style={{ textAlign: 'center', marginTop: 20 }}>Pode falar do seu jeito. Ex.: “Mano, tive uma ideia…”</div>}
+        {messages.length === 0 && <div className="muted small" style={{ textAlign: 'center', marginTop: 20 }}>Toque no núcleo para falar, ou escreva do seu jeito. Ex.: “Mano, tive uma ideia…”</div>}
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.role}`}>
             {m.content}
@@ -147,11 +165,11 @@ export function ChatPanel() {
             <div className="row"><button className="btn danger" onClick={() => decide(p, true)}>Confirmar</button><button className="btn" onClick={() => decide(p, false)}>Cancelar</button></div>
           </div>
         ))}
-        {busy && <div className="typing">MASON está pensando…</div>}
+        {busy && <div className="typing" aria-label="MASON está pensando"><i /><i /><i /></div>}
       </div>
       {voiceInfo && <div className="voice-hint">{voiceInfo}</div>}
       <div className="chat-input">
-        <button className="icon-btn" disabled title="Anexar arquivos (em breve)" aria-label="Anexar arquivos (em breve)">+</button>
+        <button className="icon-btn" disabled title="Anexar arquivos (em breve)" aria-label="Anexar arquivos (em breve)"><Icon name="plus" /></button>
         <textarea
           rows={1}
           placeholder={listening ? 'Ouvindo…' : 'Escreva ou fale…'}
@@ -159,10 +177,10 @@ export function ChatPanel() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(input); } }}
         />
-        <button className={`icon-btn ${listening ? 'recording' : ''}`} onClick={mic} aria-label={listening ? 'Parar de ouvir' : 'Falar'}>{listening ? 'Parar' : 'Mic'}</button>
+        <button className={`icon-btn ${listening ? 'recording' : ''}`} onClick={mic} aria-label={listening ? 'Parar de ouvir' : 'Falar'}>{listening ? <Icon name="stop" /> : <Icon name="mic" />}</button>
         {busy
-          ? <button className="icon-btn" onClick={stop} aria-label="Interromper">Parar</button>
-          : <button className="icon-btn primary" onClick={() => { stop(); void send(input); }} disabled={!input.trim()} aria-label="Enviar">Enviar</button>}
+          ? <button className="icon-btn" onClick={stop} aria-label="Interromper"><Icon name="stop" /></button>
+          : <button className="icon-btn primary" onClick={() => { stop(); void send(input); }} disabled={!input.trim()} aria-label="Enviar"><Icon name="send" /></button>}
       </div>
     </div>
   );

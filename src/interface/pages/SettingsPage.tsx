@@ -10,6 +10,7 @@ import { db } from '../../storage/database/db';
 import { INTEGRATIONS } from '../../integrations';
 import { APP_VERSION } from '../../core/version';
 import { semanticStatus } from '../../assistant/intent/semantic';
+import { core, useReducedMotion } from '../components/coreState';
 
 export function SettingsPage() {
   return (
@@ -18,6 +19,7 @@ export function SettingsPage() {
       <CoreSettings />
       <VoiceSettings />
       <CommunicationSettings />
+      <AppearanceSettings />
       <StorageSettings />
       <IntegrationsSettings />
       <SecurityNotes />
@@ -76,6 +78,24 @@ function CommunicationSettings() {
         </select>
       </Field>
       <p className="small muted">Expressões, memórias e correções de voz ficam em Memória, onde você pode consultar e corrigir tudo.</p>
+    </section>
+  );
+}
+
+function AppearanceSettings() {
+  const reduced = useReducedMotion();
+  const set = async (v: boolean) => {
+    core.setReduced(v);
+    await setPref('ui.motion', v ? 'reduzido' : 'completo');
+  };
+  return (
+    <section className="card stack">
+      <h2>Aparência</h2>
+      <p className="small muted">Tema escuro no estilo Jarvis. Com animações reduzidas, o fundo animado e os efeitos param, o que economiza bateria.</p>
+      <div className="tabs">
+        <button className={`tab ${!reduced ? 'active' : ''}`} onClick={() => set(false)}>Animações completas</button>
+        <button className={`tab ${reduced ? 'active' : ''}`} onClick={() => set(true)}>Animações reduzidas</button>
+      </div>
     </section>
   );
 }
@@ -147,7 +167,7 @@ function Diagnostics() {
     <section className="card stack">
       <h2>Diagnóstico e versão</h2>
       {data && <p className="small">Plataforma: {data.platform} · Banco: {data.driver} (schema v{data.schema}) · Núcleo: próprio (Fase 1)</p>}
-      <p className="small muted">MASON {APP_VERSION} — núcleo próprio, Fase 1. Aparência: tema roxo padrão; ajustes de tema virão depois.</p>
+      <p className="small muted">MASON {APP_VERSION} — núcleo próprio, Fase 1. </p>
     </section>
   );
 }

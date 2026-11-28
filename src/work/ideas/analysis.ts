@@ -11,7 +11,7 @@ import type { Idea } from '../../core/types';
 
 /** Pistas técnicas de que um critério já foi respondido no texto da ideia. */
 const HINTS: Record<string, string[]> = {
-  'Público': ['publico', 'clientes', 'usuarios', 'pessoas', 'empresas', 'pequenos negocios', 'lojistas', 'estudantes', 'profissionais', 'donos', 'consumidores', 'barbearias', 'saloes'],
+  'Público': ['publico', 'clientes', 'usuarios', 'pessoas', 'empresas', 'pequenos negocios', 'lojistas', 'estudantes', 'profissionais', 'donos', 'consumidores', 'barbearias', 'saloes', 'barbearia', 'salao', 'academia', 'academias', 'restaurante', 'restaurantes', 'clinica', 'clinicas', 'advogados', 'freelancers'],
   'Problema': ['problema', 'dificuldade', 'perdem', 'nao conseguem', 'precisam', 'facilitar', 'resolver', 'consigam', 'economizar'],
   'Monetização': ['cobrar', 'assinatura', 'mensalidade', 'comissao', 'margem', 'pagar', 'vender', 'anuncio', 'anuncios', 'lucro', 'dinheiro', 'plano', 'planos', 'taxa'],
   'Diferencial': ['diferencial', 'diferente', 'melhor que', 'unico', 'ninguem faz', 'concorrente', 'concorrentes'],

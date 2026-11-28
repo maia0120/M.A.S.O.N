@@ -80,3 +80,41 @@ export function AskMason({ prompt, children }: { prompt: string; children: React
     </button>
   );
 }
+
+/** Número que sobe até o valor (anima quando o valor muda). */
+export function CountUp({ value }: { value: number | undefined }) {
+  const [shown, setShown] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    if (value === undefined) return;
+    const start = performance.now();
+    const a = from.current;
+    const dur = 900;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - k, 3);
+      setShown(Math.round(a + (value - a) * eased));
+      if (k < 1) raf = requestAnimationFrame(step);
+      else from.current = value;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{value === undefined ? '…' : shown}</>;
+}
+
+/** Ícones de traço simples (SVG). */
+export function Icon({ name }: { name: 'mic' | 'send' | 'stop' | 'plus' }) {
+  const paths: Record<string, string> = {
+    mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Zm-7 9a7 7 0 0 0 14 0M12 19v3',
+    send: 'M4 12 20 4l-6 16-3-7-7-1Z',
+    stop: 'M7 7h10v10H7z',
+    plus: 'M12 5v14M5 12h14',
+  };
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={paths[name]} />
+    </svg>
+  );
+}
