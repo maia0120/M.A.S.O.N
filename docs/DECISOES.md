@@ -51,7 +51,7 @@ Entrevista de definição (Prompt 02), 27/11/2026. Cada decisão foi escolhida p
 
 - **D26.** A base inicial foi revisada pelo Gabriel (convenção usada: item marcado = manter). Foram removidos 13 itens: "salve", "oi", "tô na área", "valeu mano", "negativo", "para", "aborta", "mano, tive uma ideia", "tive um insight", "engaveta essa", "MVP", a resposta "Disponha." e a resposta "Anotado: {titulo}…". Ficaram 149 frases de exemplo, 20 expressões, 36 abreviações, 19 termos de vocabulário, 19 critérios e 18 modelos de resposta.
 
-- **D27.** Atualizações pelo GitHub: o app novo **substitui o conteúdo do repositório `maia0120/M.A.S.O.N`**. O projeto antigo (Escritório Virtual em Python) fica preservado no histórico e na tag `escritorio-virtual-python`. O APK assinado é gerado pelo GitHub Actions e publicado em Releases. A instalação no celular é sempre feita pelo Gabriel, porque o Android exige isso.
+- **D27.** Atualizações pelo GitHub: o app novo **substitui o conteúdo do repositório `maia0120/M.A.S.O.N`**. O projeto antigo (Escritório Virtual em Python) fica preservado no histórico do Git (commit `127d7ac`). O APK assinado é gerado pelo GitHub Actions e publicado em Releases. A instalação no celular é sempre feita pelo Gabriel, porque o Android exige isso.
 
 ## Histórico de execução
 - **Fase 0 (27/11/2026):** o Gemini foi removido (cliente, proxy, configuração de chave, ciclo do agente). O executor de ferramentas passou para `src/assistant/core/executor.ts`. O chat responde que o núcleo chega na Fase 1. A base inicial foi rascunhada (`src/assistant/knowledge/seed.ts`) e enviada para revisão no documento "MASON — Base inicial de conhecimento (revisão)".
